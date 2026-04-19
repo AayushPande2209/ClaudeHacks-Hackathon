@@ -11,6 +11,7 @@ import json
 import time
 import asyncio
 import re
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -26,6 +27,41 @@ from utils.context_builder import compile_business_context
 _SEEN_IDS_PATH = Path("data/seen_document_numbers.json")
 # Append-only audit log — one JSON object per line (mirrors the agent_runs DB table)
 _AGENT_RUNS_LOG = Path("output/agent_runs.jsonl")
+
+def _get_writable_path(p: Path) -> Path:
+    """Check if a path's parent is writable, else fallback to /tmp."""
+    try:
+        if not p.parent.exists():
+            p.parent.mkdir(parents=True, exist_ok=True)
+        # Test write
+        test_file = p.parent / f".test_write_{os.getpid()}"
+        test_file.touch()
+        test_file.unlink()
+        return p
+    except Exception:
+        # Fallback for Vercel/Read-only
+        tmp_dir = Path("/tmp/tariffshield")
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        return tmp_dir / p.name
+
+_SEEN_IDS_PATH = _get_writable_path(_SEEN_IDS_PATH)
+_AGENT_RUNS_LOG = _get_writable_path(_AGENT_RUNS_LOG)
+
+def _get_writable_path(p: Path) -> Path:
+    """Check if a path's parent is writable, else fallback to /tmp."""
+    try:
+        if not p.parent.exists():
+            p.parent.mkdir(parents=True, exist_ok=True)
+        # Test write
+        test_file = p.parent / f".test_write_{os.getpid()}"
+        test_file.touch()
+        test_file.unlink()
+        return p
+    except Exception:
+        # Fallback for Vercel/Read-only
+        tmp_dir = Path("/tmp/tariffshield")
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        return tmp_dir / p.name
 
 
 # ---------------------------------------------------------------------------
@@ -499,12 +535,12 @@ class SignalMonitorAgent:
 
     def _log_agent_run(self, entry: dict) -> None:
         """Append one agent_runs record to output/agent_runs.jsonl."""
-        _AGENT_RUNS_LOG.parent.mkdir(exist_ok=True)
+        # No direct mkdir here anymore, handled by _get_writable_path
         record = {
             "logged_at": datetime.now(timezone.utc).isoformat(),
             **entry,
         }
-        with _AGENT_RUNS_LOG.open("a") as f:
+        with _get_writable_path(_AGENT_RUNS_LOG).open("a") as f:
             f.write(json.dumps(record) + "\n")
 
     # ------------------------------------------------------------------
@@ -596,6 +632,6 @@ def _load_seen_ids() -> set[str]:
 
 def _save_seen_ids(seen_ids: set[str]) -> None:
     """Persist document_numbers to disk so the next run is incremental."""
-    _SEEN_IDS_PATH.parent.mkdir(exist_ok=True)
+    # No direct mkdir here anymore, handled by _get_writable_path
     with _SEEN_IDS_PATH.open("w") as f:
         json.dump(sorted(seen_ids), f, indent=2)
