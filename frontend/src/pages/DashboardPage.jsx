@@ -227,38 +227,56 @@ function timeAgo(iso) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-function NewsCard({ article, boms }) {
-  const risk = RISK_META[article.risk_level] || RISK_META.INFO;
-  const showImpact = article.risk_score > 50;
+const COUNTRY_KEYWORDS = ['china','vietnam','india','mexico','canada','taiwan','south korea','indonesia','thailand','bangladesh','germany','france','italy'];
 
-  // Cross-reference affected_categories against user's actual BOM products
-  const matchedProducts = React.useMemo(() => {
-    if (!showImpact || !boms?.length) return [];
-    const cats = (article.affected_categories || []).map(c => c.toLowerCase());
-    const matched = [];
-    for (const bom of boms) {
-      const rows = bom.rows || [];
-      for (const row of rows) {
-        const country = (row.supplier_country || '').toLowerCase();
-        const desc = (row.description || '').toLowerCase();
-        const sku = row.sku_code || '';
-        const hit = cats.some(cat => {
-          if (cat.includes('china') && country.includes('china')) return true;
-          if (cat.includes('apparel') && (desc.includes('fabric') || desc.includes('yarn') || desc.includes('cotton') || desc.includes('thread') || desc.includes('garment'))) return true;
-          if (cat.includes('steel') && (desc.includes('steel') || desc.includes('metal') || desc.includes('aluminum'))) return true;
-          if (cat.includes('electronic') && (desc.includes('pcb') || desc.includes('circuit') || desc.includes('chip') || desc.includes('battery') || desc.includes('electronic'))) return true;
-          if (cat.includes('chemical') && (desc.includes('dye') || desc.includes('resin') || desc.includes('chemical'))) return true;
-          if (cat.includes('plastic') && (desc.includes('plastic') || desc.includes('polymer') || desc.includes('pvc'))) return true;
-          if (cat.includes('canada') && country.includes('canada')) return true;
-          if (cat.includes('mexico') && country.includes('mexico')) return true;
-          if (cat.includes('eu') && ['germany','france','italy','spain','netherlands','poland'].some(c => country.includes(c))) return true;
-          return false;
-        });
-        if (hit) matched.push(`${sku ? sku + ' · ' : ''}${row.description || ''}`.trim().slice(0, 48));
+function matchBomParts(article, boms) {
+  if (!boms?.length) return [];
+  const articleText = ((article.title || '') + ' ' + (article.description || '') + ' ' + (article.affected_categories || []).join(' ')).toLowerCase();
+  const cats = (article.affected_categories || []).map(c => c.toLowerCase());
+
+  // Countries mentioned in the article
+  const mentionedCountries = COUNTRY_KEYWORDS.filter(c => articleText.includes(c));
+
+  const matched = [];
+  for (const bom of boms) {
+    for (const row of (bom.rows || [])) {
+      const country = (row.supplier_country || '').toLowerCase();
+      const desc = (row.description || '').toLowerCase();
+      const sku = row.sku_code || '';
+      const label = `${sku ? sku + ' · ' : ''}${row.description || ''}`.trim().slice(0, 52);
+
+      // Country-level match (broadest — most reliable)
+      if (mentionedCountries.some(c => country.includes(c))) {
+        matched.push({ label, reason: row.supplier_country, priority: 0 });
+        continue;
       }
+      // Category-level match
+      const catHit = cats.some(cat => {
+        if (cat.includes('apparel') && /fabric|yarn|cotton|thread|garment|shirt|dye|textile/.test(desc)) return true;
+        if (cat.includes('steel') && /steel|metal|aluminum|alloy/.test(desc)) return true;
+        if (cat.includes('electronic') && /pcb|circuit|chip|battery|sensor|electronic|led/.test(desc)) return true;
+        if (cat.includes('chemical') && /dye|resin|chemical|solvent/.test(desc)) return true;
+        if (cat.includes('plastic') && /plastic|polymer|pvc|resin|bag|pouch/.test(desc)) return true;
+        if (cat.includes('agricultural') && /bean|coffee|grain|cotton|fiber/.test(desc)) return true;
+        if (cat.includes('machinery') && /pump|motor|valve|machine|press|drill/.test(desc)) return true;
+        return false;
+      });
+      if (catHit) matched.push({ label, reason: 'category match', priority: 1 });
     }
-    return [...new Set(matched)].slice(0, 3);
-  }, [showImpact, boms, article.affected_categories]);
+  }
+
+  // Dedupe, sort by priority
+  const seen = new Set();
+  return matched
+    .sort((a, b) => a.priority - b.priority)
+    .filter(m => { if (seen.has(m.label)) return false; seen.add(m.label); return true; })
+    .slice(0, 5);
+}
+
+function NewsCard({ article, boms, forceShowImpact }) {
+  const risk = RISK_META[article.risk_level] || RISK_META.INFO;
+  const showImpact = forceShowImpact || article.risk_score > 50;
+  const matchedParts = React.useMemo(() => showImpact ? matchBomParts(article, boms) : [], [showImpact, article, boms]);
 
   return (
     <a
@@ -270,18 +288,15 @@ function NewsCard({ article, boms }) {
       <Glass padding={14} style={{
           cursor: 'pointer', transition: 'box-shadow 0.15s',
           borderLeft: `3px solid ${risk.bar}`,
+          background: forceShowImpact ? `${risk.bar}05` : undefined,
         }}
         onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.1)'}
         onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
           <Chip bg={risk.bg} fg={risk.fg}>{article.risk_level}</Chip>
-          <span style={{ fontSize: 10, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>
-            {article.source}
-          </span>
-          <span style={{ fontSize: 10, color: 'var(--fg-3)', marginLeft: 'auto' }}>
-            {timeAgo(article.published_at)}
-          </span>
+          <span style={{ fontSize: 10, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>{article.source}</span>
+          <span style={{ fontSize: 10, color: 'var(--fg-3)', marginLeft: 'auto' }}>{timeAgo(article.published_at)}</span>
         </div>
 
         <div style={{ fontWeight: 600, fontSize: 13, lineHeight: '18px', marginBottom: 5,
@@ -303,36 +318,57 @@ function NewsCard({ article, boms }) {
           RISK SCORE {article.risk_score}/100
         </div>
 
-        {/* Impact section for high-risk articles */}
+        {/* Impact section */}
         {showImpact && (
-          <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border-1)' }}>
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${risk.bar}30` }}>
             {article.risk_why && (
-              <div style={{ fontSize: 11, color: risk.bar, marginBottom: 6, lineHeight: '15px', fontWeight: 500 }}>
+              <div style={{ fontSize: 11, color: risk.bar, marginBottom: 8, lineHeight: '15px', fontWeight: 500 }}>
                 ⚠ {article.risk_why}
               </div>
             )}
+
+            {/* WHAT PARTS ARE AFFECTED — always shown prominently in High Risk tab */}
+            <div style={{ marginBottom: 4 }}>
+              <div style={{
+                fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                color: risk.bar, marginBottom: 6, letterSpacing: '0.06em',
+              }}>
+                WHAT PARTS ARE AFFECTED
+              </div>
+              {matchedParts.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {matchedParts.map((p, i) => (
+                    <div key={i} style={{
+                      fontSize: 11, padding: '5px 8px', borderRadius: 6,
+                      background: `${risk.bar}10`, border: `1px solid ${risk.bar}20`,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}>
+                      <span style={{ color: risk.bar, fontWeight: 700, fontSize: 13 }}>▸</span>
+                      <div>
+                        <div style={{ fontWeight: 600, color: 'var(--fg-1)' }}>{p.label}</div>
+                        <div style={{ fontSize: 10, color: 'var(--fg-3)' }}>sourced from {p.reason}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 11, color: 'var(--fg-3)', fontStyle: 'italic' }}>
+                  No direct part matches — upload a BOM with supplier countries to see impact.
+                </div>
+              )}
+            </div>
+
             {(article.affected_categories || []).length > 0 && (
-              <div style={{ marginBottom: matchedProducts.length ? 6 : 0 }}>
-                <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>SECTORS AT RISK</div>
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>SECTORS</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                   {article.affected_categories.map(cat => (
                     <span key={cat} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 99,
-                      background: `${risk.bar}15`, color: risk.bar, fontWeight: 500 }}>
+                      background: `${risk.bar}12`, color: risk.bar, fontWeight: 500 }}>
                       {cat}
                     </span>
                   ))}
                 </div>
-              </div>
-            )}
-            {matchedProducts.length > 0 && (
-              <div style={{ marginTop: 6 }}>
-                <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>YOUR AFFECTED PARTS</div>
-                {matchedProducts.map((p, i) => (
-                  <div key={i} style={{ fontSize: 10, color: 'var(--fg-1)', padding: '2px 0',
-                    display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ color: risk.bar }}>▸</span> {p}
-                  </div>
-                ))}
               </div>
             )}
           </div>
@@ -395,11 +431,16 @@ function GoodIdeaPanel({ boms }) {
           <button
             onClick={() => load(true)}
             disabled={loading}
-            style={{ background: 'none', border: 'none', cursor: loading ? 'default' : 'pointer',
-              color: 'var(--fg-3)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}
+            style={{
+              background: loading ? 'var(--border-1)' : 'var(--accent)',
+              border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer',
+              color: '#fff', fontSize: 11, fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
+              opacity: loading ? 0.6 : 1,
+            }}
           >
-            <LIcon name="refresh-cw" size={12} color={loading ? 'var(--fg-3)' : 'var(--accent)'}/>
-            {loading ? 'Loading…' : 'Refresh'}
+            <LIcon name="refresh-cw" size={11} color="#fff"/>
+            {loading ? 'Loading…' : 'Refresh Feed'}
           </button>
         </div>
 
@@ -443,7 +484,7 @@ function GoodIdeaPanel({ boms }) {
           </Glass>
         )}
         {filtered.map(article => (
-          <NewsCard key={article.id} article={article} boms={boms} />
+          <NewsCard key={article.id} article={article} boms={boms} forceShowImpact={tab === 'high'} />
         ))}
       </div>
     </div>
