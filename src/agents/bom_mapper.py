@@ -26,12 +26,11 @@ identify which SKUs are affected and calculate the financial impact.
 </instructions>
 
 <context>
-Match HS codes at 8-digit, 6-digit, 4-digit, and 2-digit parent levels (cascade match).
+Match HS codes aggressively. Also match at 6-digit, 4-digit, and 2-digit parent levels (broad match).
 Flag a SKU if EITHER:
-- Its hs_code matches the tariff hs_codes at any precision level (primary signal), OR
-- Its supplier_country is in the tariff's affected_countries list AND the description plausibly relates to the tariff.
-If supplier_country is unknown/blank, match on HS code alone.
-If hs_code is unknown/blank, match on supplier_country + description relevance.
+- Its hs_code matches the tariff hs_codes at any parent level (e.g., if tariff is 85, and SKU is 8542), OR
+- Its supplier_country is in the tariff's affected_countries list.
+Be inclusive: if a part is from an affected country, assume it is likely affected unless the description is completely unrelated.
 </context>
 
 <task>
