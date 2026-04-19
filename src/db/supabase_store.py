@@ -37,22 +37,34 @@ def _now() -> str:
 # LOCAL FALLBACK (in-memory + JSON file persistence)
 # ──────────────────────────────────────────────────────────────────────────
 
-_DATA_DIR = Path(__file__).parent.parent / "data"
-_DATA_DIR.mkdir(exist_ok=True)
-_STORE_FILE = _DATA_DIR / "store.json"
+def _get_store_paths():
+    data_dir = Path(__file__).parent.parent / "data"
+    # Only try to create if it doesn't exist
+    if not data_dir.exists():
+        try:
+            data_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            # Fallback for read-only systems like Vercel
+            data_dir = Path("/tmp")
+    return data_dir, data_dir / "store.json"
 
 
 def _load() -> dict:
-    if _STORE_FILE.exists():
+    _, store_file = _get_store_paths()
+    if store_file.exists():
         try:
-            return json.loads(_STORE_FILE.read_text())
+            return json.loads(store_file.read_text())
         except Exception:
             pass
     return {"boms": {}, "bom_rows": {}, "events": {}, "recommendations": {}, "scenarios": {}, "agent_runs": [], "business_profiles": {}}
 
 
 def _save(state: dict):
-    _STORE_FILE.write_text(json.dumps(state, indent=2, default=str))
+    _, store_file = _get_store_paths()
+    try:
+        store_file.write_text(json.dumps(state, indent=2, default=str))
+    except Exception as e:
+        print(f"[LocalStore] Warning: Could not save state: {e}")
 
 
 class LocalStore:
