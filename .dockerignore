@@ -1,0 +1,58 @@
+# flyctl launch added from .gitignore
+# Environment
+**/.env
+**/*.env
+
+# Python
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.egg-info
+**/dist
+**/build
+**/.venv
+**/venv
+
+# Output / runtime artifacts
+**/src/output
+**/src/data/seen_document_numbers.json
+**/src/data/store.json
+
+# Legacy paths (pre-rename)
+**/tariffpilot
+
+# Tooling
+**/.claire
+**/.claude
+
+# OS
+**/.DS_Store
+**/Thumbs.db
+
+# flyctl launch added from frontend/.gitignore
+# Logs
+frontend/**/logs
+frontend/**/*.log
+frontend/**/npm-debug.log*
+frontend/**/yarn-debug.log*
+frontend/**/yarn-error.log*
+frontend/**/pnpm-debug.log*
+frontend/**/lerna-debug.log*
+
+frontend/**/node_modules
+frontend/**/dist
+frontend/**/dist-ssr
+frontend/**/*.local
+
+# Editor directories and files
+frontend/**/.vscode/*
+!frontend/**/.vscode/extensions.json
+frontend/**/.idea
+frontend/**/.DS_Store
+frontend/**/*.suo
+frontend/**/*.ntvs*
+frontend/**/*.njsproj
+frontend/**/*.sln
+frontend/**/*.sw?
+fly.toml
