@@ -327,6 +327,13 @@ async def upload_materials(
     if not bom_csv and not pdfs:
         raise HTTPException(400, "At least one file is required")
 
+    bom_id = None
+    row_count = 0
+    preview_rows = []
+    validation_errors = []
+    pdf_chars = 0
+    tariff_event_id = None
+
     try:
         if bom_csv and bom_csv.filename:
             content = await bom_csv.read()
