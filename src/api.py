@@ -728,21 +728,27 @@ import urllib.request
 _news_cache: dict = {"ts": 0, "articles": []}
 _NEWS_TTL = 600  # 10-minute cache
 
-_HIGH_KEYWORDS = [
-    "145%", "tariff hike", "tariff increase", "executive order", "section 301",
-    "section 232", "embargo", "sanctions", "trade ban", "import ban",
-    "reciprocal tariff", "retaliatory", "trade war escalat",
+# Each tuple: (keyword, score_contribution)
+_WEIGHTED_KEYWORDS: list[tuple[str, int]] = [
+    # Critical signals 70-95
+    ("145%", 92), ("reciprocal tariff", 88), ("trade war escalat", 85),
+    ("executive order", 82), ("embargo", 80), ("trade ban", 79),
+    ("import ban", 78), ("retaliatory", 76), ("sanctions", 74),
+    ("section 301", 72), ("section 232", 70), ("tariff hike", 68),
+    ("tariff increase", 66),
+    # High signals 45-65
+    ("antidumping", 63), ("supply chain disruption", 60), ("import duty", 58),
+    ("customs duty", 56), ("ustr", 53), ("dumping", 51),
+    ("trade restriction", 49), ("trade war", 47), ("trade deficit", 45),
+    # Medium signals 25-44
+    ("tariff", 42), ("wto", 38), ("trade policy", 35),
+    ("free trade", 32), ("trade agreement", 30), ("trade deal", 28),
+    ("tariff exemption", 27), ("tariff relief", 26),
+    # Low signals 8-24
+    ("supply chain", 22), ("sourcing", 18), ("manufacturing", 15),
+    ("export", 12), ("import", 10), ("logistics", 9),
+    ("freight", 9), ("shipping", 8),
 ]
-_MEDIUM_KEYWORDS = [
-    "tariff", "import duty", "customs duty", "trade war", "trade deficit",
-    "wto", "trade policy", "ustr", "supply chain disruption", "trade restriction",
-    "trade agreement", "free trade", "dumping", "antidumping",
-]
-_LOW_KEYWORDS = [
-    "supply chain", "manufacturing", "trade", "export", "import",
-    "logistics", "freight", "shipping", "sourcing",
-]
-
 
 _CATEGORY_SIGNALS: list[tuple[str, list[str]]] = [
     ("Electronics & Components",  ["semiconductor", "chip", "pcb", "electronic", "battery", "solar panel", "circuit"]),
@@ -762,31 +768,28 @@ _CATEGORY_SIGNALS: list[tuple[str, list[str]]] = [
 def _score_article(title: str, description: str) -> dict:
     text = (title + " " + (description or "")).lower()
 
-    high_hits  = [kw for kw in _HIGH_KEYWORDS   if kw in text]
-    med_hits   = [kw for kw in _MEDIUM_KEYWORDS  if kw in text]
-    low_hits   = [kw for kw in _LOW_KEYWORDS     if kw in text]
+    # Find all matching keywords with their weights, take the top 5 hits
+    hits = [(kw, pts) for kw, pts in _WEIGHTED_KEYWORDS if kw in text]
+    hits.sort(key=lambda x: -x[1])
 
-    score = min(95, len(high_hits) * 30 + len(med_hits) * 12 + len(low_hits) * 5)
-    # Vary within tiers so cards don't all look identical
-    if high_hits:
-        score = max(score, 65 + min(30, len(high_hits) * 10))
-    elif med_hits:
-        score = max(score, 35 + min(30, len(med_hits) * 8))
-    elif low_hits:
-        score = max(score, 10 + min(20, len(low_hits) * 5))
+    if not hits:
+        score = 4
     else:
-        score = max(score, 4)
+        # Primary signal sets the floor; each additional hit adds diminishing points
+        primary = hits[0][1]
+        bonus = sum(pts * (0.25 ** i) for i, (_, pts) in enumerate(hits[1:5]))
+        score = min(97, int(primary + bonus))
 
     if score >= 65:   level, color = "HIGH",   "#D14343"
     elif score >= 35: level, color = "MEDIUM",  "#D97706"
     elif score >= 12: level, color = "LOW",     "#4C6FAE"
     else:             level, color = "INFO",    "#6B7280"
 
-    # Build why string from matched keywords
-    triggers = high_hits + med_hits
+    # Build why string from top matched keywords
+    top_kws = [kw for kw, _ in hits[:4]]
     why = ""
-    if triggers:
-        why = f"Triggered by: {', '.join(triggers[:4])}"
+    if top_kws:
+        why = f"Triggered by: {', '.join(top_kws)}"
         if level == "HIGH":
             why += ". Immediate action may be needed."
         elif level == "MEDIUM":
