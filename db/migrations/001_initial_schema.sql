@@ -119,15 +119,14 @@ create policy "user_sees_own_exposure" on exposure_scores
   for all using (user_id = auth.uid());
 
 -- ─────────────────────────────────────────────────────────────────
--- 6. recommendations  (SPEC §6 cols + 4 extra cols from store.py)
+-- 6. recommendations  (SPEC §6 cols + 3 extra JSON/text cols from pipeline state)
 -- ─────────────────────────────────────────────────────────────────
 create table if not exists recommendations (
   id               uuid primary key default gen_random_uuid(),
   user_id          uuid references auth.users(id) on delete cascade,
   event_id         uuid references tariff_events(id) on delete cascade,
-  draft_email      jsonb,
   status           text default 'running',
-  approved_at      timestamptz,
+  error            text,
   created_at       timestamptz default now(),
   -- extra cols
   bom_id           text,

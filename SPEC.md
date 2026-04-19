@@ -6,15 +6,15 @@
 
 ## 1. Overview
 
-TariffShield is a web application that protects small business importers from sudden tariff shocks. Owners upload a Bill of Materials (BOM) describing their product SKUs and supplier countries. The system continuously monitors government tariff feeds, detects events that affect the user's supply chain, scores SKU-level exposure, models alternative sourcing scenarios in parallel, and drafts supplier outreach emails. A human-in-the-loop (HITL) approval gate is required before any external action (email send) is executed.
+TariffShield is a web application that protects small business importers from sudden tariff shocks. Owners upload a Bill of Materials (BOM) describing their product SKUs and supplier countries. The system continuously monitors government tariff feeds, detects events that affect the user's supply chain, scores SKU-level exposure, and models three alternative sourcing scenarios in parallel. Ranked recommendations are surfaced directly on the user dashboard.
 
-**Primary user:** Owner-operators of small importing businesses who need automated early warning and concrete re-sourcing options without giving up control of supplier communications.
+**Primary user:** Owner-operators of small importing businesses who need automated early warning and concrete re-sourcing options.
 
 **Core value loop:**
 1. Upload BOM CSV.
 2. System watches for tariff events 24/7.
-3. On a relevant event: agents score impact, propose three sourcing scenarios, and draft an outreach email.
-4. User reviews the ranked scenarios and approves (or edits) the email with one click.
+3. On a relevant event: agents score impact and propose three ranked sourcing scenarios.
+4. User reviews the ranked scenarios on the dashboard and acts on them.
 
 ---
 
@@ -44,7 +44,7 @@ TariffShield is a web application that protects small business importers from su
 
 ## 3. Agent Architecture
 
-TariffShield is composed of four top-level agents. Agents communicate exclusively via structured JSON messages with validated schemas. No agent may invoke an external side-effect (email send, API write) without passing through the HITL Gate.
+TariffShield is composed of three top-level agents. Agents communicate exclusively via structured JSON messages with validated schemas.
 
 ### 3.1 Agent 1 — Signal Monitor
 **Role:** Detect new tariff events in real time.
@@ -153,27 +153,7 @@ Every `BOMMapperAgent.run()` return value MUST be validated with `BOMAnalysis(**
 **Responsibilities:**
 - All three sub-agents MUST be dispatched concurrently with `asyncio.gather()`. Sequential calls are a spec violation.
 - Sub-agent generation uses Llama 3.3 70B via Groq.
-- The Orchestrator ranks the three scenarios afterward by composite score (cost delta, lead time delta, confidence).
-
-### 3.4 Agent 4 — Execution + HITL Gate
-**Role:** Rank scenarios and surface the recommendation to the user for explicit approval or rejection.
-
-**Inputs:**
-- Ranked scenarios from Agent 3.
-- User profile (company name).
-
-**Outputs (JSON):**
-```json
-{
-  "recommendation_id": "uuid",
-  "ranked_scenarios": [ "..." ],
-  "status": "awaiting_approval"
-}
-```
-
-**Responsibilities:**
-- The HITL Gate agent critiques each scenario for factual grounding and completeness before presenting to the user.
-- Status transitions: `awaiting_approval → approved | rejected`. Only `approved` allows the user to act on the recommendation.
+- The Orchestrator ranks the three scenarios by composite score (cost delta, lead time delta, confidence) and persists the result to `recommendations`. Ranked scenarios are surfaced directly to the user dashboard.
 
 ---
 
@@ -197,13 +177,10 @@ Every `BOMMapperAgent.run()` return value MUST be validated with `BOMAnalysis(**
                               [Orchestrator ranking — llama-3.3-70b]
                                        |
                                        v
-                            [Execution + HITL Gate]
+                            recommendations (Supabase)
                                        |
                                        v
-                            [HITL critique — llama-3.3-70b]
-                                       |
-                                       v
-                          [User approval UI — React]
+                             [User dashboard — React]
 ```
 
 **Storage rules:**
@@ -248,8 +225,6 @@ All endpoints are FastAPI routes hosted on Fly.io. Authentication uses Supabase 
 |--------|------|-------------|
 | POST   | `/api/v1/events/{event_id}/analyze` | Trigger BOM Mapper + Scenario Modeler for the event. Returns recommendation id. |
 | GET    | `/api/v1/recommendations/{rec_id}` | Get ranked scenarios for a recommendation. |
-| POST   | `/api/v1/recommendations/{rec_id}/approve` | HITL approval — marks recommendation as approved. |
-| POST   | `/api/v1/recommendations/{rec_id}/reject` | HITL rejection — closes the recommendation. |
 
 ### Internal / Admin
 | Method | Path | Description |
@@ -358,11 +333,11 @@ RLS: `user_id = auth.uid()`. One row per user; upsert on re-submit.
 | user_id | uuid FK | |
 | event_id | uuid FK | |
 | bom_id | uuid FK → boms.id | |
+| status | text | `running` \| `complete` \| `error` — pipeline state |
+| error | text nullable | error message if status = `error` |
 | ranked_scenarios | jsonb nullable | ordered scenario list after Orchestrator ranking |
 | enriched_event | jsonb nullable | full tariff event payload used during analysis |
 | bom_analysis | jsonb nullable | BOM Mapper exposure output used during analysis |
-| status | text | `awaiting_approval` \| `approved` \| `edited` \| `rejected` |
-| approved_at | timestamptz nullable | |
 | created_at | timestamptz | |
 
 ### `agent_runs` (audit log)
@@ -400,10 +375,9 @@ No other external API keys are required. Federal Register API and USITC HTS API 
 
 These are non-negotiable invariants. Any code change that violates them is a spec regression.
 
-1. **HITL gate is mandatory.** A recommendation may only transition to `approved` via an explicit `POST /api/v1/recommendations/{rec_id}/approve` call originating from the authenticated user. No agent may auto-approve under any condition, including retries.
-2. **Validate every inter-agent message.** Each agent's output JSON MUST conform to its declared schema (Pydantic models in the backend) before being passed to the next agent. Invalid payloads halt the pipeline and are logged to `agent_runs`.
-3. **Parallel sub-agents must use `asyncio.gather()`.** The three Scenario Modeler sub-agents (Reshore, Nearshore, Dual-source) MUST be dispatched concurrently. Sequential `await` calls or thread pools are not acceptable substitutes.
-4. **Model discipline.** All agents use `llama-3.3-70b-versatile` via the Groq API. Do not swap the model without updating this spec.
-5. **No silent external actions.** Any agent capable of side effects (supplier API write, webhook) MUST route through the HITL Gate. Read-only external calls (Federal Register API, Tavily API, Census Schedule B API, USITC HTS API) are exempt but must be logged.
-6. **Auditability.** Every agent invocation is recorded in `agent_runs` with input, output, model, and latency. Recommendations preserve their full scenario lineage so users can re-inspect any past decision.
-7. **Tenant isolation.** Supabase RLS policies are required on every user-scoped table. No backend endpoint may bypass RLS using the service-role key except for the internal Signal Monitor poller.
+1. **Validate every inter-agent message.** Each agent's output JSON MUST conform to its declared schema (Pydantic models in the backend) before being passed to the next agent. Invalid payloads halt the pipeline and are logged to `agent_runs`.
+2. **Parallel sub-agents must use `asyncio.gather()`.** The three Scenario Modeler sub-agents (Reshore, Nearshore, Dual-source) MUST be dispatched concurrently. Sequential `await` calls or thread pools are not acceptable substitutes.
+3. **Model discipline.** All agents use `llama-3.3-70b-versatile` via the Groq API. Do not swap the model without updating this spec.
+4. **No silent external actions.** Read-only external calls (Federal Register API, Tavily API, Census Schedule B API, USITC HTS API) are exempt from gating but must be logged to `agent_runs`.
+5. **Auditability.** Every agent invocation is recorded in `agent_runs` with input, output, model, and latency. Recommendations preserve their full scenario lineage so users can re-inspect any past decision.
+6. **Tenant isolation.** Supabase RLS policies are required on every user-scoped table. No backend endpoint may bypass RLS using the service-role key except for the internal Signal Monitor poller.

@@ -1,8 +1,8 @@
 import React from "react";
 
-export function Glass({ children, style, thick, dark, padding = 24 }) {
+export function Glass({ children, style, thick, dark, padding = 24, onClick }) {
   return (
-    <div style={{
+    <div onClick={onClick} style={{
       position:'relative',
       background: dark ? 'rgba(20,21,25,.86)' : thick ? 'var(--glass-thick-bg)' : 'var(--glass-bg)',
       backdropFilter: thick ? 'blur(28px) saturate(160%)' : 'blur(18px) saturate(140%)',

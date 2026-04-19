@@ -1,11 +1,10 @@
 import React from "react";
 import { LIcon } from "./ui/LIcon";
-import { Btn } from "./ui/Btn";
 
-export function AppHeader({ page, setPage, apiOk, onSeed }) {
+export function AppHeader({ page, setPage, apiOk }) {
   const tabs = [
     {id:'dashboard', label:'Global Map', icon:'radar'},
-    {id:'company', label:'Upload BOM', icon:'package'},
+    {id:'company', label:'Upload Materials', icon:'package'},
     {id:'events', label:'Tariff Signals', icon:'zap'},
     {id:'scenarios', label:'HITL & Scenarios', icon:'shield-check'},
     {id:'report', label:'Audit Log', icon:'file-clock'},
@@ -37,7 +36,6 @@ export function AppHeader({ page, setPage, apiOk, onSeed }) {
       </div>
 
       <div style={{display:'flex',alignItems:'center',gap:16}}>
-        <Btn variant="ghost" small onClick={onSeed}>Load Demo</Btn>
         <div style={{display:'flex',alignItems:'center',gap:8,padding:'6px 12px',borderRadius:999,
           background:apiOk?'rgba(79,143,90,.14)':'rgba(209,67,67,.1)',
           color:apiOk?'#35683F':'#D14343',

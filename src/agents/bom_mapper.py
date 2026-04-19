@@ -5,11 +5,9 @@ import json
 import asyncio
 import os
 import httpx
-from groq import AsyncGroq
 from pydantic import BaseModel
+from groq_client import chat_with_fallback, create_groq_client, get_fallback_model, get_primary_model
 from utils.context_builder import compile_business_context
-
-MODEL = "llama-3.3-70b-versatile"
 CHUNK_SIZE = 50
 
 
@@ -28,8 +26,11 @@ identify which SKUs are affected and calculate the financial impact.
 
 <context>
 Match HS codes at 8-digit, 6-digit, 4-digit, and 2-digit parent levels (cascade match).
-Only flag SKUs whose supplier_country is in the tariff's affected_countries list AND
-whose hs_code matches the tariff hs_codes at any precision level.
+Flag a SKU if EITHER:
+- Its hs_code matches the tariff hs_codes at any precision level (primary signal), OR
+- Its supplier_country is in the tariff's affected_countries list AND the description plausibly relates to the tariff.
+If supplier_country is unknown/blank, match on HS code alone.
+If hs_code is unknown/blank, match on supplier_country + description relevance.
 </context>
 
 <task>
@@ -76,7 +77,10 @@ class HTSRates(BaseModel):
 
 class BOMMapperAgent:
     def __init__(self):
-        self.client = AsyncGroq()
+        self.client = create_groq_client()
+        self.primary_model = get_primary_model()
+        self.fallback_model = get_fallback_model()
+        self.last_model_used = self.primary_model
 
     async def run(self, enriched_event: dict, bom: list[dict], user_id: str = "") -> dict:
         print(f"\n[BOMMapper] Mapping {len(bom)} SKUs against tariff event")
@@ -129,14 +133,18 @@ class BOMMapperAgent:
             f"BOM Chunk {idx + 1} ({len(chunk)} SKUs):\n{json.dumps(chunk, indent=2)}"
         )
 
-        response = await self.client.chat.completions.create(
-            model=MODEL,
+        response, model_used = await chat_with_fallback(
+            self.client,
+            primary_model=self.primary_model,
+            fallback_model=self.fallback_model,
+            request_name=f"bom_mapper.chunk_{idx + 1}",
             max_tokens=4096,
             messages=[
                 {"role": "system", "content": f"{self._biz_context}\n\n{SYSTEM_PROMPT}".strip() if getattr(self, '_biz_context', '') else SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
         )
+        self.last_model_used = model_used
 
         text = response.choices[0].message.content or ""
 
@@ -163,25 +171,46 @@ class BOMMapperAgent:
     # ------------------------------------------------------------------
 
     async def _enrich_missing_hs_codes(self, bom: list[dict]) -> list[dict]:
-        """Fill in missing HS codes for BOM rows using live trade APIs."""
+        """Fill in missing HS codes — single batched LLM call to conserve rate limits."""
         rows_to_enrich = [r for r in bom if not r.get("hs_code")]
         if not rows_to_enrich:
             return bom
 
-        print(f"[BOMMapper] Enriching {len(rows_to_enrich)} rows with missing HS codes...")
-        
-        async def enrich_row(row: dict):
-            try:
-                rates = await self.lookup_tariff_rate(row.get("description", ""))
-                if rates:
-                    # In a real app we'd map this back. For now we just add the HS code.
-                    # The spec says lookup_tariff_rate returns rates, but we also need the code.
-                    pass 
-            except Exception as e:
-                print(f"[BOMMapper] Enrichment failed for {row.get('sku_code')}: {e}")
-
-        # For the sake of the hackathon, we only implement the client logic
-        # but don't block the pipeline if these calls fail.
+        print(f"[BOMMapper] Enriching {len(rows_to_enrich)} rows with missing HS codes (batched)...")
+        items = "\n".join(
+            f"{i+1}. {r.get('sku_code','?')} | {r.get('description','')}"
+            for i, r in enumerate(rows_to_enrich)
+        )
+        response, model_used = await chat_with_fallback(
+            self.client,
+            primary_model=self.primary_model,
+            fallback_model=self.fallback_model,
+            request_name="bom_mapper.batch_hs_classify",
+            messages=[
+                {"role": "system", "content": (
+                    "You are an HTS classification expert. Given a numbered list of products, "
+                    "return ONLY a JSON array where each element is {\"index\": N, \"hs_code\": \"XXXX.XX\"}. "
+                    "Use 6-digit HS codes. No markdown, no explanation."
+                )},
+                {"role": "user", "content": items},
+            ],
+        )
+        self.last_model_used = model_used
+        import re
+        text = (response.choices[0].message.content or "").strip()
+        if text.startswith("```"):
+            text = "\n".join(text.split("\n")[1:])
+            text = text.rstrip("`").strip()
+        try:
+            results = json.loads(text)
+            lookup = {r["index"]: r["hs_code"] for r in results if "index" in r and "hs_code" in r}
+            for i, row in enumerate(rows_to_enrich):
+                code = lookup.get(i + 1)
+                if code:
+                    row["hs_code"] = code
+                    print(f"[BOMMapper] {row.get('sku_code')}: resolved HS {code}")
+        except Exception as exc:
+            print(f"[BOMMapper] Batch HS classification failed: {exc}")
         return bom
 
     async def lookup_tariff_rate(self, product_description: str) -> HTSRates | None:
@@ -195,13 +224,17 @@ class BOMMapperAgent:
     async def _clean_description(self, description: str) -> str:
         """Standardize description into trade-ready terminology."""
         prompt = f"Clean this product description for HTS lookup: {description}"
-        response = await self.client.chat.completions.create(
-            model=MODEL,
+        response, model_used = await chat_with_fallback(
+            self.client,
+            primary_model=self.primary_model,
+            fallback_model=self.fallback_model,
+            request_name="bom_mapper.clean_description",
             messages=[
                 {"role": "system", "content": "Return ONLY a concise, trade-standard product description (e.g. 'lithium-ion battery packs'). No punctuation."},
                 {"role": "user", "content": prompt}
             ],
         )
+        self.last_model_used = model_used
         return response.choices[0].message.content.strip()
 
     async def _census_schedule_b_lookup(self, cleaned_desc: str) -> ScheduleBMatch | None:
@@ -225,8 +258,40 @@ class BOMMapperAgent:
                         # Census returns [header, [val1, val2]]
                         hs_code = data[1][0]
                         return ScheduleBMatch(hs_code=hs_code, confidence=0.9)
-            except Exception:
-                pass
+            except Exception as exc:
+                from db.supabase_store import store
+                store.log_agent_run({
+                    "agent_name": "bom_mapper_census_api",
+                    "model": self.last_model_used,
+                    "input_payload": {"query": cleaned_desc},
+                    "output_payload": {"error": str(exc)},
+                })
+                print(f"[BOMMapper] Census API error: {exc}")
+        return None
+
+    async def _llm_classify_hs_code(self, cleaned_desc: str) -> ScheduleBMatch | None:
+        """Use Groq LLM to classify an HS code from a product description."""
+        response, model_used = await chat_with_fallback(
+            self.client,
+            primary_model=self.primary_model,
+            fallback_model=self.fallback_model,
+            request_name="bom_mapper.llm_hs_classify",
+            messages=[
+                {"role": "system", "content": (
+                    "You are an expert in HTS (Harmonized Tariff Schedule) classification. "
+                    "Given a product description, return ONLY the most likely 6-digit HS code "
+                    "in the format XXXX.XX with no explanation, no markdown, nothing else."
+                )},
+                {"role": "user", "content": f"Product: {cleaned_desc}"},
+            ],
+        )
+        self.last_model_used = model_used
+        raw = (response.choices[0].message.content or "").strip()
+        # Extract first HS-like pattern (digits and dots, 6+ chars)
+        import re
+        m = re.search(r"\d{4}\.?\d{2}", raw)
+        if m:
+            return ScheduleBMatch(hs_code=m.group(0), confidence=0.7)
         return None
 
     async def _usitc_hts_lookup(self, hs_code: str) -> HTSRates | None:
@@ -249,6 +314,13 @@ class BOMMapperAgent:
                             special_rates=r.get("special_rates", "None"),
                             column_2_rate=r.get("column_2_rate", "0%")
                         )
-            except Exception:
-                pass
+            except Exception as exc:
+                from db.supabase_store import store
+                store.log_agent_run({
+                    "agent_name": "bom_mapper_usitc_api",
+                    "model": self.last_model_used,
+                    "input_payload": {"hs_code": hs_code},
+                    "output_payload": {"error": str(exc)},
+                })
+                print(f"[BOMMapper] USITC API error: {exc}")
         return None

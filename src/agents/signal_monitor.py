@@ -15,14 +15,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from groq import AsyncGroq
 from pydantic import BaseModel, ValidationError
 
+from groq_client import chat_with_fallback, create_groq_client, get_fallback_model, get_primary_model
 from tools.tavily_client import TavilyClient
 from tools.federal_register import FederalRegisterClient
 from utils.context_builder import compile_business_context
-
-MODEL = "llama-3.3-70b-versatile"
 
 # File that persists document_numbers seen across CLI runs so we don't reprocess
 _SEEN_IDS_PATH = Path("data/seen_document_numbers.json")
@@ -88,6 +86,42 @@ Return ONLY valid JSON — no markdown, no explanation:
   "effective_date": "2026-05-01",
   "rate_change_bps": 8400
 }
+</output_format>"""
+
+
+# ---------------------------------------------------------------------------
+# Pydantic model + prompt for news rumor extraction
+# ---------------------------------------------------------------------------
+
+class NewsExtraction(BaseModel):
+    """Structured tariff rumor extracted from a news article."""
+    title: str
+    hs_codes: list[str] = []
+    affected_countries: list[str] = []
+    rate_change_hint: str = ""
+    threat_level: str = "MEDIUM"
+    confidence_score: float = 0.5
+    source_url: str = ""
+
+
+NEWS_EXTRACTION_SYSTEM_PROMPT = """<instructions>
+You are a trade intelligence analyst. Given a news article title and snippet, extract
+any tariff or trade-policy signals. Be conservative: only flag stories that plausibly
+affect US import tariffs. Return an empty list if no signals found.
+</instructions>
+
+<output_format>
+Return ONLY a valid JSON array of objects. Each object:
+{
+  "title": "short signal title",
+  "hs_codes": ["8471"],
+  "affected_countries": ["CN"],
+  "rate_change_hint": "25% proposed",
+  "threat_level": "HIGH",
+  "confidence_score": 0.6,
+  "source_url": "https://..."
+}
+Return [] if no tariff signals found.
 </output_format>"""
 
 
@@ -166,7 +200,10 @@ TAVILY_TOOL_DEF = {
 
 class SignalMonitorAgent:
     def __init__(self):
-        self.client = AsyncGroq()
+        self.client = create_groq_client()
+        self.primary_model = get_primary_model()
+        self.fallback_model = get_fallback_model()
+        self.last_model_used = self.primary_model
         self.tavily = TavilyClient()
         self.max_search_rounds = 3
 
@@ -176,6 +213,11 @@ class SignalMonitorAgent:
 
     async def run(self, raw_event: dict, user_id: str = "") -> dict:
         print(f"\n[SignalMonitor] Starting ReAct loop for event: {raw_event.get('event_id', 'unknown')}")
+
+        # Internal events (bom-upload, manual, demo) already have all data — skip web search
+        if raw_event.get("source") in ("bom-upload", "manual", "demo"):
+            return self._fast_enrich(raw_event)
+
         biz = compile_business_context(user_id) if user_id else ""
         system = f"{biz}\n\n{SYSTEM_PROMPT}".strip() if biz else SYSTEM_PROMPT
         messages = [
@@ -190,13 +232,17 @@ class SignalMonitorAgent:
         final_result = None
 
         while search_rounds < self.max_search_rounds:
-            response = await self.client.chat.completions.create(
-                model=MODEL,
+            response, model_used = await chat_with_fallback(
+                self.client,
+                primary_model=self.primary_model,
+                fallback_model=self.fallback_model,
+                request_name="signal_monitor.react",
                 max_tokens=4096,
                 tools=[TAVILY_TOOL_DEF],
                 tool_choice="auto",
                 messages=messages,
             )
+            self.last_model_used = model_used
 
             msg = response.choices[0].message
             finish_reason = response.choices[0].finish_reason
@@ -238,11 +284,15 @@ class SignalMonitorAgent:
 
                 if search_rounds >= self.max_search_rounds:
                     messages.append({"role": "user", "content": "Confidence is sufficient. Return the final enriched JSON now."})
-                    final_response = await self.client.chat.completions.create(
-                        model=MODEL,
+                    final_response, model_used = await chat_with_fallback(
+                        self.client,
+                        primary_model=self.primary_model,
+                        fallback_model=self.fallback_model,
+                        request_name="signal_monitor.final_json",
                         max_tokens=2048,
                         messages=messages,
                     )
+                    self.last_model_used = model_used
                     text = final_response.choices[0].message.content or ""
                     final_result = self._parse_json(text)
                     if final_result:
@@ -334,6 +384,64 @@ class SignalMonitorAgent:
         print(f"[SignalMonitor] Returning {len(events)} event(s) from Federal Register poll")
         return events, seen_ids
 
+    # ------------------------------------------------------------------
+    # MODE 3: News / rumor polling via Tavily
+    # ------------------------------------------------------------------
+
+    async def poll_news_sources(self, queries: list[str] | None = None) -> list[dict]:
+        """Search Tavily for tariff news headlines; extract signals with Llama 3.3."""
+        if queries is None:
+            queries = [
+                "US tariff new 2026 import",
+                "Section 301 tariff increase announcement",
+                "trade war tariff proposal",
+            ]
+
+        client = self.tavily
+        groq = create_groq_client()
+        all_results: list[dict] = []
+
+        for query in queries:
+            try:
+                results = client.search(query, count=5)
+            except Exception as e:
+                print(f"[SignalMonitor] News search failed for '{query}': {e}")
+                continue
+
+            snippets = "\n\n".join(
+                f"Title: {r.get('title','')}\nURL: {r.get('url','')}\nSnippet: {r.get('description','')}"
+                for r in results[:5]
+            )
+            if not snippets:
+                continue
+
+            try:
+                resp = await groq.chat.completions.create(
+                    model=get_primary_model(),
+                    max_tokens=1024,
+                    messages=[
+                        {"role": "system", "content": NEWS_EXTRACTION_SYSTEM_PROMPT},
+                        {"role": "user", "content": snippets},
+                    ],
+                )
+                text = (resp.choices[0].message.content or "[]").strip()
+                if text.startswith("```"):
+                    text = "\n".join(text.split("\n")[1:-1])
+                extracted = json.loads(text)
+                if isinstance(extracted, list):
+                    for item in extracted:
+                        validated = NewsExtraction(**item)
+                        all_results.append({
+                            **validated.model_dump(),
+                            "source": "news",
+                            "raw_excerpt": snippets[:500],
+                        })
+            except Exception as e:
+                print(f"[SignalMonitor] News extraction error: {e}")
+
+        print(f"[SignalMonitor] poll_news_sources: {len(all_results)} signal(s) found")
+        return all_results
+
     async def _extract_tariff_metadata(self, doc: dict) -> FedRegDocExtraction:
         """Call Llama 3.3 70B to extract hs_codes/jurisdictions/date/rate from
         a Federal Register document title + abstract. Validates with Pydantic."""
@@ -345,21 +453,25 @@ class SignalMonitorAgent:
         started_at = datetime.now(timezone.utc).isoformat()
         t0 = time.monotonic()
 
-        response = await self.client.chat.completions.create(
-            model=MODEL,
+        response, model_used = await chat_with_fallback(
+            self.client,
+            primary_model=self.primary_model,
+            fallback_model=self.fallback_model,
+            request_name="signal_monitor.federal_register_extraction",
             max_tokens=512,
             messages=[
                 {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
                 {"role": "user", "content": user_content},
             ],
         )
+        self.last_model_used = model_used
 
         latency_ms = int((time.monotonic() - t0) * 1000)
         text = response.choices[0].message.content or ""
 
         self._log_agent_run({
             "agent_name": "signal_monitor",
-            "model": MODEL,
+            "model": model_used,
             "input_payload": {
                 "source": "federal_register_extraction",
                 "document_number": doc.get("document_number"),
@@ -424,6 +536,15 @@ class SignalMonitorAgent:
                 except Exception:
                     pass
         return 0.0
+
+    def _fast_enrich(self, raw_event: dict) -> dict:
+        """No-LLM enrichment for internal events that already carry full metadata."""
+        result = self._fallback(raw_event, search_rounds=0)
+        result["confidence_score"] = 0.85
+        result["key_facts"] = [raw_event.get("description", "")]
+        result["sources"] = [raw_event.get("url", "")]
+        print(f"[SignalMonitor] Fast-path enrichment (source={raw_event.get('source')}) — skipped web search")
+        return EnrichedEvent(**{k: v for k, v in result.items() if k in EnrichedEvent.model_fields}).model_dump()
 
     def _fallback(self, raw_event: dict, search_rounds: int) -> dict:
         hints = raw_event.get("hs_codes_hint", [])

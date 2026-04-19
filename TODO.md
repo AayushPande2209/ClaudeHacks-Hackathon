@@ -1,134 +1,102 @@
 # TariffShield — TODO
 
-## PHASE: BOM Mapper — Live API Wiring (broken despite [x] status)
+---
 
-### bom_mapper.py — _enrich_missing_hs_codes() never calls the Census/USITC chain
+## OPEN — Blocking (server won't run correctly without these)
 
-- [ ] In `src/agents/bom_mapper.py` inside `_enrich_missing_hs_codes()` (lines ~165–185): replace the placeholder comment with a real call to `_census_schedule_b_lookup(row["description"])` → if result is not None, call `_usitc_hts_lookup(result.hs_code)` → write the resolved HS code back to the row dict and log the result; handle None returns from either step gracefully (leave hs_code as-is and continue) — Owner: Builder — Priority: high
-- [ ] Verify that `_census_schedule_b_lookup()` and `_usitc_hts_lookup()` exceptions are logged (not silently swallowed) — currently both are wrapped in bare `except` that return `None` with no log entry; add a `store.log_agent_run()` call on exception so failures are visible in the audit trail — Owner: Builder — Priority: high
+### Environment / startup
+
+- [x] Move `load_dotenv()` (and the `from dotenv import load_dotenv` import) to the very top of `src/api.py`, before any other import that reads env vars — currently it lives only in `main.py` which is never executed when uvicorn runs `uvicorn api:app`; without this fix `GROQ_API_KEY`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` are all `None` at runtime — Owner: Builder — Priority: high
+- [x] In `frontend/vite.config.js` change the dev server port from `3000` to `5173` (Vite's default), or remove the explicit port entirely — the proxy config only applies when Vite runs on port 3000, but Vite is binding to 5173, so all `/api/*` calls hit the Vite static server instead of FastAPI → 502 — Owner: Builder — Priority: high
+
+### HITL Gate — complete the removal (blocks clean startup)
+
+- [x] Delete `src/agents/hitl_gate.py` entirely — Owner: Builder — Priority: high
+- [x] In `src/agents/orchestrator.py`: remove Stage 4 `HITLGateAgent` import and call; pipeline now ends after Orchestrator ranking — Owner: Builder — Priority: high
+- [x] In `src/pipeline.py`: remove `from agents.hitl_gate import HITLGateAgent` (line 16) and all remaining HITL references; pipeline ends at scenario ranking — Owner: Builder — Priority: high
+- [x] In `src/api.py`: remove `POST /api/v1/recommendations/{rec_id}/approve` and `POST /api/v1/recommendations/{rec_id}/reject` route handlers — Owner: Builder — Priority: high
+- [x] Write Supabase migration `db/migrations/002_drop_hitl_columns.sql` to drop `status` and `approved_at` from the `recommendations` table — Owner: Builder — Priority: high
 
 ---
 
-## PHASE: Reviewer Fixes — R1 (must fix before demo)
+## OPEN — Must Fix
 
-### Issue 1 — context_builder.py:14 — get_profile missing from both store classes
+### BOM Mapper — live API wiring (broken despite [x] status)
 
-- [ ] Add `get_profile(user_id: str) -> dict | None` to `LocalStore` in `src/store.py` (return `None`); add the same method to `SupabaseStore` in `src/db/supabase_store.py` querying `business_profiles` where `user_id` matches — Owner: Builder — Priority: high
-- [ ] In `src/utils/context_builder.py`: replace the `hasattr(store, "_supabase_profile")` branch with a direct call to `store.get_profile(user_id)`; handle `None` gracefully (return a minimal context block with "No business profile found") — Owner: Builder — Priority: high
+- [x] In `src/agents/bom_mapper.py` inside `_enrich_missing_hs_codes()` (lines ~165–185): replace the placeholder comment with a real call to `_census_schedule_b_lookup(row["description"])` → if result is not None, call `_usitc_hts_lookup(result.hs_code)` → write the resolved HS code back to the row dict and log the result; handle None returns from either step gracefully (leave hs_code as-is and continue) — Owner: Builder — Priority: high
+- [x] Verify that `_census_schedule_b_lookup()` and `_usitc_hts_lookup()` exceptions are logged (not silently swallowed) — currently both are wrapped in bare `except` that return `None` with no log entry; add a `store.log_agent_run()` call on exception so failures are visible in the audit trail — Owner: Builder — Priority: high
 
-### Issue 2 — bom_loader.py:137 — os.system pip install forbidden
+### Reviewer Fixes — R1
 
-- [ ] Add `pdfplumber` to `requirements.txt` as a hard dependency; in `src/data/bom_loader.py` remove the `except ImportError: os.system(...)` block entirely and let a missing `pdfplumber` raise `ImportError` at startup — Owner: Builder — Priority: high
-
-### Issue 3 — api.py:285 — non-deterministic hash()
-
-- [ ] In `src/api.py` replace `str(hash(body.title + body.description))` with `hashlib.sha256((body.title + body.description).encode()).hexdigest()`; add `import hashlib` at the top of the file — Owner: Builder — Priority: high
-
-### Issue 4 — api.py:435 — unauthenticated internal poll endpoint (SPEC §5, Constraint 6)
-
-- [ ] In `src/api.py` on the `POST /api/v1/internal/poll-signals` handler: read `INTERNAL_TOKEN` from env at startup; reject requests where `Authorization` header != `Bearer $INTERNAL_TOKEN` with a 401 before any polling work executes — Owner: Builder — Priority: high
-- [ ] Add `INTERNAL_TOKEN` to `.env` with a randomly generated value; document in SPEC.md §7 (already done) — Owner: Builder — Priority: high
-
-### Issue 5 — pipeline.py — incomplete audit log entries (SPEC Constraint 7)
-
-- [ ] In `src/pipeline.py`: record `start = time.monotonic()` before each agent `.run()` call; compute `latency_ms = int((time.monotonic() - start) * 1000)` after; replace the two split partial log calls per agent with a single complete `store.log_agent_run()` call containing `agent_name`, `model`, `input_payload`, `output_payload`, and `latency_ms` — fix for Signal Monitor (lines ~203–213), BOM Mapper (~223–227), and HITL Gate (~259–263) — Owner: Builder — Priority: high
-
-### Issue 6 — pipeline.py:13 — _AGENTS_PATH resolves to non-existent directory
-
-- [ ] In `src/pipeline.py` change `_AGENTS_PATH = str(Path(__file__).parent.parent / "scudo_claude_Hackathon" / "tariffpilot")` to `_AGENTS_PATH = str(Path(__file__).parent)`; apply the same fix to the duplicate broken path in `src/api.py:440` and `src/api.py:487` — Owner: Builder — Priority: high
-
-### Issue 7 — pipeline.py — no Pydantic validation on inter-agent handoffs (SPEC Constraint 2)
-
-- [ ] Declare `EnrichedEvent` Pydantic model in `src/agents/signal_monitor.py` matching the schema in SPEC.md §3.1; at the end of `SignalMonitorAgent.run()` wrap the return value: `return EnrichedEvent(**result).model_dump()` — Owner: Builder — Priority: high
-- [ ] Declare `BOMAnalysis` Pydantic model in `src/agents/bom_mapper.py` matching the schema in SPEC.md §3.2; at the end of `BOMMapperAgent.run()` wrap the return value: `return BOMAnalysis(**result).model_dump()` — Owner: Builder — Priority: high
-- [ ] In `src/pipeline.py`: after each agent `.run()` call, re-validate the result against the corresponding Pydantic model before passing to the next stage; on `ValidationError` log the error to `agent_runs` and raise so the pipeline halts cleanly — Owner: Builder — Priority: high
+- [x] **Issue 1** — Add `get_profile(user_id: str) -> dict | None` to `SupabaseStore` in `src/db/supabase_store.py` querying `business_profiles` where `user_id` matches — Owner: Builder — Priority: high
+- [x] **Issue 1** — In `src/utils/context_builder.py`: replace the `hasattr(store, "_supabase_profile")` branch with a direct call to `store.get_profile(user_id)`; handle `None` gracefully (return a minimal context block with "No business profile found") — Owner: Builder — Priority: high
+- [x] **Issue 2** — Add `pdfplumber` to `requirements.txt` as a hard dependency; in `src/data/bom_loader.py` remove the `except ImportError: os.system(...)` block entirely — Owner: Builder — Priority: high
+- [x] **Issue 3** — In `src/api.py` replace `str(hash(body.title + body.description))` with `hashlib.sha256((body.title + body.description).encode()).hexdigest()`; add `import hashlib` — Owner: Builder — Priority: high
+- [x] **Issue 4** — In `src/api.py` on `POST /api/v1/internal/poll-signals`: read `INTERNAL_TOKEN` from env at startup; reject requests where `Authorization` header != `Bearer $INTERNAL_TOKEN` with a 401 — Owner: Builder — Priority: high
+- [x] **Issue 4** — Add `INTERNAL_TOKEN` to `.env` with a randomly generated value — Owner: Builder — Priority: high
+- [x] **Issue 5** — In `src/pipeline.py`: record `start = time.monotonic()` before each agent `.run()` call; compute `latency_ms = int((time.monotonic() - start) * 1000)` after; replace split partial log calls with a single complete `store.log_agent_run()` containing `agent_name`, `model`, `input_payload`, `output_payload`, and `latency_ms` — fix for Signal Monitor (lines ~203–213) and BOM Mapper (lines ~223–227) — Owner: Builder — Priority: high
+- [x] **Issue 6** — In `src/pipeline.py` change `_AGENTS_PATH` to `str(Path(__file__).parent)`; apply the same fix to the duplicate broken path in `src/api.py:440` and `src/api.py:487` — Owner: Builder — Priority: high
+- [x] **Issue 7** — Declare `EnrichedEvent` Pydantic model in `src/agents/signal_monitor.py` matching SPEC.md §3.1; wrap `SignalMonitorAgent.run()` return: `return EnrichedEvent(**result).model_dump()` — Owner: Builder — Priority: high
+- [x] **Issue 7** — Declare `BOMAnalysis` Pydantic model in `src/agents/bom_mapper.py` matching SPEC.md §3.2; wrap `BOMMapperAgent.run()` return: `return BOMAnalysis(**result).model_dump()` — Owner: Builder — Priority: high
+- [x] **Issue 7** — In `src/pipeline.py`: after each agent `.run()` call re-validate against the corresponding Pydantic model; on `ValidationError` log to `agent_runs` and raise so the pipeline halts cleanly — Owner: Builder — Priority: high
 
 ---
 
-## PHASE: Reviewer Suggestions — R1 (should fix)
+## OPEN — Recommendation ERROR (new bugs found 2026-04-19)
 
-### S1 — api.py:249,353 — list calls missing user_id
-
-- [ ] In `src/api.py` pass the authenticated user's ID to `store.list_boms(user_id=current_user_id)` and `store.list_recommendations(user_id=current_user_id)`; update `SupabaseStore` to filter by `user_id` in both methods — Owner: Builder — Priority: med
-
-### S2 — api.py:287 — duplicate event_id generates two UUIDs
-
-- [ ] In `src/api.py` compute `event_id = body.event_id or str(uuid.uuid4())` once before the dict literal and reference that variable for both `"id"` and `"event_id"` keys — Owner: Builder — Priority: med
-
-### S3 — pipeline.py:92 — bom_analysis.get('summary', {}) always returns {}
-
-- [ ] In `src/pipeline.py` replace `bom_analysis.get('summary', {})` with the real exposure fields from `BOMAnalysis` (`affected_skus`, `total_annual_tariff_impact_usd`); update the email draft prompt to reference those fields by name — Owner: Builder — Priority: med
-
-### S4 — hitl_gate.py — remove email drafting code entirely
-
-- [ ] Delete `_draft_emails()`, `_write_emails()`, `EMAIL_SYSTEM`, `email_dir` setup, and any email-related logic from `src/agents/hitl_gate.py`; the agent now only ranks scenarios and critiques them for factual grounding — Owner: Builder — Priority: high
-- [ ] Remove the `hasattr(HITLGateAgent, "EMAIL_SYSTEM")` branch and any email draft prompt references from `src/pipeline.py` — Owner: Builder — Priority: high
+- [x] In `src/db/supabase_store.py` `create_recommendation()`: remove `draft_email` and `approved_at` from the inserted row dict — confirmed clean; migration 002 only drops `draft_email` and `approved_at`, `status` preserved — Owner: Builder — Priority: high
+- [x] In `db/migrations/002_drop_hitl_columns.sql`: confirmed SQL only drops `approved_at` and `draft_email`; `status` preserved — Owner: Builder — Priority: high
+- [x] In `frontend/src/pages/RecommendationsPage.jsx`: when `rec.status === 'error'`, render `rec.error` in a red alert box — already implemented — Owner: Builder — Priority: high
 
 ---
 
-## PHASE: Tavily Migration (replace Brave Search)
+## OPEN — Should Fix
 
-### Signal Monitor → src/tools/ + src/agents/
-
-- [x] Add `tavily-python` to `requirements.txt`; create `src/tools/tavily_client.py` with a `TavilyClient` class that calls `tavily.search(query, max_results=count)` and normalizes each result to `{title, url, description, published}` (Tavily returns `content`, not `description` — map it); mirror the same async `search(query, count) -> list[dict]` signature as the old `BraveMCPClient` — Owner: Builder — Priority: high
-- [x] In `src/agents/signal_monitor.py`: replace `from tools.mcp_client import BraveMCPClient` with `from tools.tavily_client import TavilyClient`; rename `self.brave = BraveMCPClient()` → `self.tavily = TavilyClient()`; rename Groq tool definition from `"brave_search"` → `"tavily_search"`; rename `_execute_brave_search` → `_execute_tavily_search`; update `tc.function.name == "brave_search"` check to `"tavily_search"` — Owner: Builder — Priority: high
-- [x] In `.env`: rename `BRAVE_API_KEY` → `TAVILY_API_KEY` and rename `TAVILY_KEY` → `TAVILY_API_KEY` (consolidate to one correct key name); delete `src/tools/mcp_client.py` — Owner: Builder — Priority: high
+- [x] **S1** — In `src/api.py` pass the authenticated user's ID to `store.list_boms(user_id=current_user_id)` and `store.list_recommendations(user_id=current_user_id)`; update `SupabaseStore` to filter by `user_id` in both methods — Owner: Builder — Priority: med
+- [x] **S2** — In `src/api.py` compute `event_id = body.event_id or str(uuid.uuid4())` once before the dict literal and reference that variable for both `"id"` and `"event_id"` keys — Owner: Builder — Priority: med
+- [x] **S3** — In `src/pipeline.py` replace `bom_analysis.get('summary', {})` with the real exposure fields from `BOMAnalysis` (`affected_skus`, `total_annual_tariff_impact_usd`) and pass them into the scenario ranking prompt — Owner: Builder — Priority: med
 
 ---
 
-## PHASE: Supabase Migration
+## DONE — Tavily Migration
 
-### Client setup + schema
-
-- [x] Add `supabase` to `requirements.txt`; create `src/db/supabase_client.py` that instantiates `create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)` and exports a singleton `db` — Owner: Builder — Priority: high
-- [x] Write `db/migrations/001_initial_schema.sql` with all 8 tables from SPEC.md §6 (`business_profiles`, `boms`, `bom_rows`, `tariff_events`, `exposure_scores`, `scenarios`, `recommendations`, `agent_runs`) including the 5 extra `bom_rows` columns and 4 extra `recommendations` columns added to SPEC.md; add `CREATE POLICY` RLS statements for every user-scoped table — Owner: Builder — Priority: high
-- [x] Run migration against the Supabase project; verify all tables created and RLS active — Owner: Builder — Priority: high
-
-### Store replacement
-
-- [x] Write `src/db/supabase_store.py` implementing the same 17-method interface as `store.py` (`create_bom`, `add_bom_rows`, `list_boms`, `get_bom`, `get_bom_rows`, `soft_delete_bom`, `upsert_event`, `list_events`, `get_event`, `create_recommendation`, `update_recommendation`, `get_recommendation`, `list_recommendations`, `log_agent_run`, `get_agent_runs`) backed by live Supabase queries — Owner: Builder — Priority: high
-- [x] Keep `_progress` dict and its 4 methods (`init_progress`, `push_progress`, `get_progress`, `get_progress_since`) in-memory inside `supabase_store.py` — SSE pipeline state is ephemeral and does not need DB persistence — Owner: Builder — Priority: high
-
-### Wire up + cleanup
-
-- [x] Replace `from store import store` with `from db.supabase_store import store` in `src/api.py` and `src/pipeline.py`; delete `src/store.py` and `src/data/store.json` — Owner: Builder — Priority: high
-- [x] Fix `.env` typos: rename `GROQ_API` → `GROQ_API_KEY` and `TAVILY_KEY` → `TAVILY_API_KEY`; confirm `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` are read via `os.getenv` in `supabase_client.py` — Owner: Builder — Priority: high
+- [x] Add `tavily-python` to `requirements.txt`; create `src/tools/tavily_client.py` with a `TavilyClient` class that calls `tavily.search(query, max_results=count)` and normalizes each result to `{title, url, description, published}` — Owner: Builder
+- [x] In `src/agents/signal_monitor.py`: replace `BraveMCPClient` with `TavilyClient`; rename tool to `"tavily_search"`; rename `_execute_brave_search` → `_execute_tavily_search` — Owner: Builder
+- [x] In `.env`: consolidate to `TAVILY_API_KEY`; delete `src/tools/mcp_client.py` — Owner: Builder
 
 ---
 
-## PHASE: Onboarding
+## DONE — Supabase Migration
 
-### Survey UI + file uploads → React frontend
-
-- [x] Build multi-step onboarding survey in React — fields: business name, industry, products (free text), supplier countries (multiselect ISO-3166), monthly import volume USD, existing supplier relationships, biggest tariff concern — Owner: Builder — Priority: high
-- [x] Build BOM CSV upload component in React with client-side row validation (required columns: `sku_code`, `description`, `supplier_country`, `unit_cost_usd`) — Owner: Builder — Priority: high
-- [x] Build optional PDF upload component in React (accepts multiple files; supplier contracts, tariff rulings, freight invoices) — Owner: Builder — Priority: medium
-
-### Ingestion backend → FastAPI + Supabase
-
-- [x] Add `pdfplumber` to `requirements.txt` and write `extract_pdf_text(pdf_file) -> str` in `data/bom_loader.py`; concatenate all uploaded PDF pages into a single string — Owner: Builder — Priority: medium
-- [x] Create `business_profiles` table in Supabase per SPEC.md §6 schema; enable RLS policy `user_id = auth.uid()`; upsert on re-submit — Owner: Builder — Priority: high
-- [x] Implement `POST /api/v1/onboarding` FastAPI endpoint — accepts multipart form with survey fields + BOM CSV + optional PDFs; calls `extract_pdf_text()` for each PDF; writes `business_profiles` row and delegates BOM CSV parsing to `data/bom_loader.py`; returns `{ business_profile_id, bom_id }` — Owner: Builder — Priority: high
-
-### Business context injection → all agents
-
-- [x] Write `compile_business_context(user_id) -> str` in `utils/context_builder.py` — queries `business_profiles` row and assembles a plain-text context block (business name, industry, products, supplier countries, import volume, extracted PDF text) for injection into agent system prompts — Owner: Builder — Priority: high
-- [x] Thread `business_context` into the system prompt of all four agents (Signal Monitor, BOM Mapper, Scenario Modeler, Execution+HITL) by calling `compile_business_context(user_id)` at the start of each agent run — Owner: Builder — Priority: high
+- [x] Add `supabase` to `requirements.txt`; create `src/db/supabase_client.py` with singleton `db` — Owner: Builder
+- [x] Write `db/migrations/001_initial_schema.sql` with all tables from SPEC.md §6 and RLS policies — Owner: Builder
+- [x] Run migration against Supabase project; verify tables and RLS active — Owner: Builder
+- [x] Write `src/db/supabase_store.py` with full 17-method store interface backed by live Supabase queries; keep `_progress` dict in-memory — Owner: Builder
+- [x] Replace `from store import store` with `from db.supabase_store import store` in `api.py` and `pipeline.py`; delete `src/store.py` and `src/data/store.json` — Owner: Builder
+- [x] Fix `.env` typos: `GROQ_API` → `GROQ_API_KEY`; confirm all Supabase keys read via `os.getenv` in `supabase_client.py` — Owner: Builder
 
 ---
 
-## PHASE: Data Integration
+## DONE — Onboarding
 
-### Federal Register REST API → signal_monitor.py
+- [x] Build multi-step onboarding survey in React — fields: business name, industry, products, supplier countries (multiselect ISO-3166), monthly import volume USD, existing supplier relationships, biggest tariff concern — Owner: Builder
+- [x] Build BOM CSV upload component in React with client-side row validation (required columns: `sku_code`, `description`, `supplier_country`, `unit_cost_usd`) — Owner: Builder
+- [x] Build optional PDF upload component in React (accepts multiple files) — Owner: Builder
+- [x] Add `pdfplumber` to `requirements.txt` and write `extract_pdf_text(pdf_file) -> str` in `data/bom_loader.py` — Owner: Builder
+- [x] Create `business_profiles` table in Supabase per SPEC.md §6; enable RLS `user_id = auth.uid()`; upsert on re-submit — Owner: Builder
+- [x] Implement `POST /api/v1/onboarding` FastAPI endpoint — multipart form with survey fields + BOM CSV + PDFs; returns `{ business_profile_id, bom_id }` — Owner: Builder
+- [x] Write `compile_business_context(user_id) -> str` in `utils/context_builder.py` — Owner: Builder
+- [x] Thread `business_context` into the system prompt of all three agents (Signal Monitor, BOM Mapper, Scenario Modeler) — Owner: Builder
 
-- [x] Add Federal Register REST API client to `signal_monitor.py` — built `tools/federal_register.py` with `FederalRegisterClient`; paginates until no new `document_number`s seen, attaches `content_hash` to each doc — Owner: Builder — Priority: high
-- [x] Update dedup logic in `signal_monitor.py` to key on `document_number` as the canonical Federal Register ID in addition to `content_hash`; retire URL-only dedup which breaks on redirects — keyed on `document_number`, persisted in `data/seen_document_numbers.json` — Owner: Builder — Priority: high
-- [x] Write `claude-sonnet-4-6` extraction prompt that receives a document `title` + `abstract` and returns a validated JSON object with `hs_codes: list[str]`, `jurisdictions: list[str]` (ISO-3166), `effective_date: str | null`, and `rate_change_bps: int | null`; wrap response in Pydantic before use (Constraint 2) — `EXTRACTION_SYSTEM_PROMPT` + `FedRegDocExtraction` Pydantic model in `signal_monitor.py` — Owner: Builder — Priority: high
-- [x] Log every Federal Register API call to `agent_runs` with agent_name `signal_monitor`, input = query params, output = document count returned (Constraint 7 — read-only calls must still be logged) — `_log_agent_run()` appends to `output/agent_runs.jsonl`; called for every HTTP page + every Claude extraction call — Owner: Builder — Priority: high
+---
 
-### Census Bureau Schedule B API + USITC HTS API → bom_mapper.py
+## DONE — Data Integration
 
-- [x] Write `claude-sonnet-4-6` prompt in `bom_mapper.py` that receives a raw BOM `description` and returns a concise, trade-standard product description suitable for Schedule B lookup; apply this cleaning step to every row before any HS code API call — `DESCRIPTION_CLEANER_SYSTEM` prompt + `_clean_description()` method; called as first step in `lookup_tariff_rate()` — Owner: Builder — Priority: high
-- [x] Implement Census Schedule B API client in `bom_mapper.py` — submit cleaned description, parse top HTS code candidates and confidence scores, return `{"hs_code": str, "confidence": float}` in a Pydantic model — `_census_schedule_b_lookup()` + `ScheduleBMatch` Pydantic model; `_normalize_hts_code()` converts 10-digit codes to dotted notation — Owner: Builder — Priority: high
-- [x] Implement USITC HTS API client in `bom_mapper.py` — `GET https://hts.usitc.gov/api/search?query=[HTS_CODE]`, parse general rate, special rates, and Column 2 rate from the live JSON response, return in a Pydantic model — `_usitc_hts_lookup()` + `HTSRates` model; handles `{"content":[...]}` and bare list responses — Owner: Builder — Priority: high
-- [x] Chain Census Schedule B → USITC HTS API into a single `lookup_tariff_rate(product_description)` function in `bom_mapper.py` — no local caching, all lookups are live — `lookup_tariff_rate()` method chains `_clean_description()` → `_census_schedule_b_lookup()` → `_usitc_hts_lookup()`; integrated into `run()` via `_enrich_missing_hs_codes()` — Owner: Builder — Priority: high
+- [x] Add Federal Register REST API client to `signal_monitor.py` — built `tools/federal_register.py` with `FederalRegisterClient`; paginates until no new `document_number`s seen — Owner: Builder
+- [x] Update dedup logic in `signal_monitor.py` to key on `document_number`; persisted in `data/seen_document_numbers.json` — Owner: Builder
+- [x] Write extraction prompt that returns `hs_codes`, `jurisdictions`, `effective_date`, `rate_change_bps` in `FedRegDocExtraction` Pydantic model — Owner: Builder
+- [x] Log every Federal Register API call to `agent_runs` via `_log_agent_run()` — Owner: Builder
+- [x] Write description-cleaning prompt in `bom_mapper.py`; `DESCRIPTION_CLEANER_SYSTEM` + `_clean_description()` method — Owner: Builder
+- [x] Implement Census Schedule B API client — `_census_schedule_b_lookup()` + `ScheduleBMatch` Pydantic model — Owner: Builder
+- [x] Implement USITC HTS API client — `_usitc_hts_lookup()` + `HTSRates` model — Owner: Builder
+- [x] Chain Census → USITC into `lookup_tariff_rate(product_description)` in `bom_mapper.py` — no local caching — Owner: Builder

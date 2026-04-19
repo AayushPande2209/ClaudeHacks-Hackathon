@@ -1,0 +1,48 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e6]: espada
+    - generic [ref=e7]:
+      - button "Global Map" [ref=e8] [cursor=pointer]:
+        - img [ref=e9]
+        - generic [ref=e16]: Global Map
+      - button "Upload BOM" [ref=e17] [cursor=pointer]:
+        - img [ref=e18]
+      - button "Tariff Signals" [ref=e22] [cursor=pointer]:
+        - img [ref=e23]
+      - button "HITL & Scenarios" [ref=e25] [cursor=pointer]:
+        - img [ref=e26]
+      - button "Audit Log" [ref=e29] [cursor=pointer]:
+        - img [ref=e30]
+    - generic [ref=e35]:
+      - button "Load Demo" [ref=e36] [cursor=pointer]
+      - generic [ref=e37]: API LIVE
+  - generic [ref=e39]:
+    - generic [ref=e40]: Products
+    - generic [ref=e43] [cursor=pointer]:
+      - img [ref=e45]
+      - generic [ref=e48]:
+        - generic [ref=e49]: Product 1
+        - generic [ref=e50]: BOM Connected
+    - button "+ Upload BOM" [ref=e51] [cursor=pointer]
+  - generic [ref=e52]:
+    - img
+    - generic:
+      - generic: Global Supply Matrix
+      - generic: High Risk Corridors
+  - generic [ref=e53]:
+    - generic [ref=e54]: Tariff Signals
+    - generic [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]: EVENT
+        - generic [ref=e59]: manual
+      - generic [ref=e60]: Section 301 — Chinese Semiconductors 0% → 84%
+      - generic [ref=e61]: 84% tariff on Chinese integrated circuits and advanced semiconductors under Section 301
+      - generic [ref=e62]:
+        - generic [ref=e63]: 0% → 84%
+        - button "Map Impact" [ref=e64] [cursor=pointer]
+    - generic [ref=e66]:
+      - generic [ref=e67]:
+        - img [ref=e68]
+        - generic [ref=e71]: HITL Gate Ready
+      - generic [ref=e72]: 1 pending authorization
+      - button "Review Scenarios" [ref=e73] [cursor=pointer]

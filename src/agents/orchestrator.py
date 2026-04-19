@@ -3,17 +3,15 @@ from __future__ import annotations
 
 import json
 import asyncio
-from groq import AsyncGroq
 from datetime import datetime
 from pathlib import Path
 
 from agents.signal_monitor import SignalMonitorAgent
 from agents.bom_mapper import BOMMapperAgent
 from agents.scenario_modeler import run_parallel_scenarios
-from agents.hitl_gate import HITLGateAgent
 from data.bom_loader import load_bom
+from groq_client import chat_with_fallback, create_groq_client, get_fallback_model, get_primary_model
 
-MODEL = "llama-3.3-70b-versatile"
 OUTPUT_DIR = Path("output")
 
 SYNTHESIZE_SYSTEM = """<instructions>
@@ -43,9 +41,11 @@ No markdown. Return ONLY the JSON array.
 
 
 class OrchestratorAgent:
-    def __init__(self, demo_mode: bool = False):
-        self.demo_mode = demo_mode
-        self.client = AsyncGroq()
+    def __init__(self):
+        self.client = create_groq_client()
+        self.primary_model = get_primary_model()
+        self.fallback_model = get_fallback_model()
+        self.last_model_used = self.primary_model
         self.audit_trail = []
         OUTPUT_DIR.mkdir(exist_ok=True)
 
@@ -80,13 +80,6 @@ class OrchestratorAgent:
         # Synthesize + rank scenarios
         ranked_scenarios = await self._synthesize(scenarios)
 
-        # Stage 4: HITL Gate
-        hitl = HITLGateAgent(demo_mode=self.demo_mode)
-        package = await self._run_stage(
-            "HITLGate",
-            lambda: hitl.run(enriched_event, bom_analysis, scenarios, ranked_scenarios),
-        )
-
         result = {
             "run_id": run_id,
             "raw_event": raw_event,
@@ -94,16 +87,14 @@ class OrchestratorAgent:
             "bom_analysis": bom_analysis,
             "scenarios": scenarios,
             "ranked_scenarios": ranked_scenarios,
-            "package": package,
             "audit_trail": self.audit_trail,
             "completed_at": datetime.utcnow().isoformat(),
         }
 
         self._write_audit(result, run_id)
 
-        status = package.get("status", "UNKNOWN")
         print(f"\n{'=' * 70}")
-        print(f"  PIPELINE COMPLETE — Status: {status}")
+        print(f"  PIPELINE COMPLETE — {len(ranked_scenarios)} scenarios ranked")
         print(f"  Audit trail: output/tariffpilot_result_{run_id}.json")
         print(f"{'=' * 70}\n")
 
@@ -144,14 +135,18 @@ class OrchestratorAgent:
     async def _synthesize(self, scenarios: list[dict]) -> list[dict]:
         print(f"\n[Orchestrator] Synthesizing and ranking {len(scenarios)} scenarios...")
 
-        response = await self.client.chat.completions.create(
-            model=MODEL,
+        response, model_used = await chat_with_fallback(
+            self.client,
+            primary_model=self.primary_model,
+            fallback_model=self.fallback_model,
+            request_name="orchestrator.synthesize",
             max_tokens=4096,
             messages=[
                 {"role": "system", "content": SYNTHESIZE_SYSTEM},
                 {"role": "user", "content": json.dumps(scenarios, indent=2)},
             ],
         )
+        self.last_model_used = model_used
 
         text = response.choices[0].message.content or ""
 

@@ -1,5 +1,5 @@
 from __future__ import annotations
-"""BOM loader — supports JSON and CSV. Ships with a 10-SKU sample."""
+"""BOM loader and parsers for uploaded materials."""
 
 import io
 import os
@@ -103,27 +103,9 @@ def load_bom(path: str | None = None) -> list[dict]:
             return json.load(f)
 
     if p.suffix.lower() in (".csv", ".tsv"):
-        delim = "\t" if p.suffix.lower() == ".tsv" else ","
-        rows = []
-        with open(p, newline="") as f:
-            reader = csv.DictReader(f, delimiter=delim)
-            for row in reader:
-                rows.append({
-                    "sku": row.get("sku", ""),
-                    "description": row.get("description", ""),
-                    "hs_code": row.get("hs_code", ""),
-                    "supplier": row.get("supplier", ""),
-                    "supplier_country": row.get("supplier_country", ""),
-                    "annual_volume_units": int(row.get("annual_volume_units", 0)),
-                    "unit_cost_usd": float(row.get("unit_cost_usd", 0)),
-                    "annual_spend_usd": float(row.get("annual_spend_usd", 0)),
-                    "alt_suppliers": [],
-                    "has_domestic_alt": False,
-                    "alt_supplier": None,
-                    "lead_time_weeks": int(row.get("lead_time_weeks", 12)),
-                    "critical_path": row.get("critical_path", "").lower() == "true",
-                })
-        return rows
+        with open(p, "rb") as f:
+            parsed = parse_bom_csv(f.read(), filename=p.name)
+        return parsed["rows"]
 
     print(f"[BOMLoader] Unsupported format: {p.suffix}, using sample BOM")
     return SAMPLE_BOM
@@ -142,3 +124,95 @@ def extract_pdf_text(pdf_file: bytes | io.IOBase) -> str:
             text = page.extract_text() or ""
             pages.append(text)
     return "\n".join(pages)
+
+
+def parse_bom_csv(csv_file: bytes | io.IOBase, filename: str = "bom.csv") -> dict:
+    """Parse uploaded CSV/TSV content into normalized BOM rows plus validation errors."""
+    if hasattr(csv_file, "read"):
+        csv_file = csv_file.read()
+    if not isinstance(csv_file, (bytes, bytearray)):
+        raise TypeError("csv_file must be bytes or a file-like object")
+
+    suffix = Path(filename).suffix.lower()
+    delimiter = "\t" if suffix == ".tsv" else ","
+    text = csv_file.decode("utf-8-sig", errors="replace")
+    reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+
+    rows = []
+    errors = []
+    for i, raw in enumerate(reader):
+        rows.append(_normalize_uploaded_row(dict(raw), i, errors))
+    return {"rows": rows, "errors": errors}
+
+
+def extract_csv_text(csv_file: bytes | io.IOBase, filename: str = "bom.csv", max_chars: int = 4000) -> str:
+    """Return a compact plain-text preview of a CSV/TSV upload for agent context."""
+    parsed = parse_bom_csv(csv_file, filename=filename)
+    lines = []
+    for row in parsed["rows"][:25]:
+        lines.append(
+            " | ".join([
+                row.get("sku_code", ""),
+                row.get("description", ""),
+                row.get("supplier_country", ""),
+                str(row.get("unit_cost_usd", "")),
+                row.get("hs_code") or "",
+            ]).strip(" |")
+        )
+    preview = "\n".join(lines)
+    return preview[:max_chars]
+
+
+def _normalize_uploaded_row(r: dict, i: int, errors: list[str]) -> dict:
+    # Lowercase all keys for case-insensitive matching
+    r = {k.strip().lower(): v for k, v in r.items()}
+
+    def pick(*keys):
+        for k in keys:
+            v = r.get(k)
+            if v is not None and str(v).strip():
+                return str(v).strip()
+        return ""
+
+    out = {}
+    out["sku_code"] = pick("sku_code", "sku", "item_number", "item_no", "item #", "item", "part_number", "part_no", "no", "id") or f"SKU-{i:04d}"
+    out["description"] = pick("description", "desc", "item_description", "part_description", "name", "item_name", "component")
+    out["supplier_name"] = pick("supplier_name", "supplier", "vendor", "manufacturer", "supplier name")
+    out["supplier_country"] = pick("supplier_country", "country", "origin", "country_of_origin", "source_country", "supplier country")
+
+    try:
+        out["tier"] = int(pick("tier") or 1)
+    except Exception:
+        out["tier"] = 1
+        errors.append(f"Row {i}: invalid tier")
+
+    try:
+        out["annual_quantity"] = int(float(pick("annual_quantity", "annual_volume_units", "qty", "quantity", "annual_qty") or 0))
+    except Exception:
+        out["annual_quantity"] = 0
+        errors.append(f"Row {i}: invalid annual_quantity")
+
+    try:
+        raw_cost = pick("unit_cost_usd", "unit_cost", "unit cost (usd)", "unit cost", "cost (usd)", "cost", "cost_usd", "price", "unit_price", "price_usd")
+        out["unit_cost_usd"] = float(raw_cost.lstrip("$").replace(",", "") or 0)
+    except Exception:
+        out["unit_cost_usd"] = 0.0
+        errors.append(f"Row {i}: invalid unit_cost_usd")
+
+    out["hs_code"] = pick("hs_code", "hs_codes", "hts_code", "hts", "hs", "tariff_code", "harmonized_code") or None
+
+    try:
+        out["annual_spend_usd"] = float(
+            r.get("annual_spend_usd")
+            or r.get("annual_spend")
+            or out["annual_quantity"] * out["unit_cost_usd"]
+        )
+    except Exception:
+        out["annual_spend_usd"] = float(out["annual_quantity"] * out["unit_cost_usd"])
+        errors.append(f"Row {i}: invalid annual_spend_usd")
+
+    out["has_domestic_alt"] = str(r.get("has_domestic_alt", "false")).lower() in ("true", "1", "yes")
+    out["alt_supplier"] = r.get("alt_supplier") or r.get("alternative_supplier") or None
+    out["lead_time_weeks"] = r.get("lead_time_weeks") or r.get("lead_time") or None
+    out["critical_path"] = str(r.get("critical_path", "false")).lower() in ("true", "1", "yes")
+    return out

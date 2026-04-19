@@ -3,10 +3,8 @@ from __future__ import annotations
 
 import json
 import asyncio
-from groq import AsyncGroq
+from groq_client import chat_with_fallback, create_groq_client, get_fallback_model, get_primary_model
 from utils.context_builder import compile_business_context
-
-MODEL = "llama-3.3-70b-versatile"
 
 SCENARIO_SYSTEMS = {
     "reshore": """<instructions>
@@ -134,7 +132,10 @@ class ScenarioModelerAgent:
     def __init__(self, strategy: str):
         assert strategy in SCENARIO_SYSTEMS, f"Unknown strategy: {strategy}"
         self.strategy = strategy
-        self.client = AsyncGroq()
+        self.client = create_groq_client()
+        self.primary_model = get_primary_model()
+        self.fallback_model = get_fallback_model()
+        self.last_model_used = self.primary_model
 
     async def run(self, enriched_event: dict, bom_analysis: dict, user_id: str = "") -> dict:
         prompt = (
@@ -144,14 +145,18 @@ class ScenarioModelerAgent:
         biz = compile_business_context(user_id) if user_id else ""
         system = f"{biz}\n\n{SCENARIO_SYSTEMS[self.strategy]}".strip() if biz else SCENARIO_SYSTEMS[self.strategy]
 
-        response = await self.client.chat.completions.create(
-            model=MODEL,
+        response, model_used = await chat_with_fallback(
+            self.client,
+            primary_model=self.primary_model,
+            fallback_model=self.fallback_model,
+            request_name=f"scenario_modeler.{self.strategy}",
             max_tokens=4096,
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": prompt},
             ],
         )
+        self.last_model_used = model_used
 
         text = response.choices[0].message.content or ""
 

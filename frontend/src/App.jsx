@@ -25,30 +25,20 @@ export default function App() {
     return ()=>clearInterval(t);
   }, []);
 
-  async function seedDemo() {
-    try { 
-      await api('POST','/demo/seed'); 
-      api('GET','/boms').then(setBoms); 
-      api('GET','/events').then(d=>setEvents(d.events||[])); 
-    } catch(e) { 
-      alert(e.message); 
-    }
-  }
-
   const navigate = (p) => setPage(p);
 
   return (
     <div className={page === 'dashboard' ? 'layout-grid' : ''} style={page !== 'dashboard' ? {minHeight:'100vh', display:'flex', flexDirection:'column'} : {}}>
-      <AppHeader page={page} setPage={setPage} apiOk={apiOk} onSeed={seedDemo} />
+      <AppHeader page={page} setPage={setPage} apiOk={apiOk} />
       
       {page === 'dashboard' && <DashboardPage boms={boms} events={events} />}
       
       {page !== 'dashboard' && (
         <main style={{padding:'40px', flex:1, margin:'0 auto', width:'100%', maxWidth:'1200px', overflowY:'auto'}}>
-          {page === 'company' && <UploadPage />}
+          {page === 'company' && <UploadPage setPage={navigate} />}
           {page === 'report' && <AuditPage />}
           {page === 'events' && <EventsPage setPage={navigate} setTargetRec={setTargetRec} />}
-          {page === 'scenarios' && <RecommendationsPage targetRec={targetRec} setTargetRec={setTargetRec} setPage={navigate} />}
+          {page === 'scenarios' && <RecommendationsPage targetRec={targetRec} setTargetRec={setTargetRec} />}
         </main>
       )}
     </div>

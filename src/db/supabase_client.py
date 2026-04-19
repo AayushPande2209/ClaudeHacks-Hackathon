@@ -6,6 +6,9 @@ Falls back gracefully when credentials are not set (local dev mode).
 
 import os
 from typing import Any
+from env import load_app_env
+
+load_app_env()
 
 _url = os.getenv("SUPABASE_URL", "")
 _key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")

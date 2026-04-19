@@ -10,9 +10,22 @@ import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from db.supabase_client import db
+
+
+def _scenario_sort_key(row: dict) -> tuple:
+    rk = row.get("rank")
+    return (rk is None, rk if rk is not None else 999, row.get("scenario_type") or "")
+
+
+def _normalize_scenario_row(row: dict | None) -> dict | None:
+    if not row:
+        return None
+    out = dict(row)
+    out.setdefault("chosen", False)
+    out.setdefault("supplier_results", None)
+    return out
 
 
 def _now() -> str:
@@ -98,6 +111,11 @@ class LocalStore:
             self._state["boms"][bom_id]["deleted_at"] = _now()
             _save(self._state)
 
+    def update_bom_pdf_notes(self, bom_id: str, pdf_notes: str):
+        if bom_id in self._state["boms"]:
+            self._state["boms"][bom_id]["pdf_notes"] = pdf_notes
+            _save(self._state)
+
     # Tariff Events
     def upsert_event(self, event: dict) -> dict:
         event_id = event.get("id") or str(uuid.uuid4())
@@ -118,8 +136,8 @@ class LocalStore:
         rec_id = str(uuid.uuid4())
         rec = {
             "id": rec_id, "user_id": user_id, "event_id": event_id, "bom_id": bom_id,
-            "status": "running", "draft_email": None, "ranked_scenarios": [],
-            "enriched_event": None, "bom_analysis": None, "approved_at": None, "created_at": _now(),
+            "status": "running", "error": None, "ranked_scenarios": [],
+            "enriched_event": None, "bom_analysis": None, "created_at": _now(),
         }
         self._state["recommendations"][rec_id] = rec
         _save(self._state)
@@ -137,6 +155,59 @@ class LocalStore:
         return [r for r in self._state["recommendations"].values() if r.get("user_id") == user_id]
 
     # Agent Runs
+    def save_scenarios(self, rec_id: str, ranked: list[dict]):
+        rows = []
+        for s in ranked:
+            rows.append({
+                "id": str(uuid.uuid4()),
+                "recommendation_id": rec_id,
+                "scenario_type": s.get("strategy") or s.get("scenario_type", ""),
+                "payload": s,
+                "landed_cost_delta_pct": s.get("annual_cost_delta_usd"),
+                "lead_time_change_days": int(s.get("lead_time_months", 0) * 30) if s.get("lead_time_months") else None,
+                "rank": s.get("rank"),
+                "chosen": False,
+                "supplier_results": None,
+            })
+        self._state.setdefault("scenarios", {})
+        for r in rows:
+            self._state["scenarios"][r["id"]] = r
+        _save(self._state)
+
+    def list_scenarios_for_recommendation(self, rec_id: str) -> list[dict]:
+        self._state.setdefault("scenarios", {})
+        rows = [
+            _normalize_scenario_row(dict(r))
+            for r in self._state["scenarios"].values()
+            if r.get("recommendation_id") == rec_id
+        ]
+        rows.sort(key=_scenario_sort_key)
+        return rows
+
+    def get_scenario(self, scenario_id: str) -> dict | None:
+        self._state.setdefault("scenarios", {})
+        raw = self._state["scenarios"].get(scenario_id)
+        if not raw:
+            return None
+        return _normalize_scenario_row(dict(raw))
+
+    def mark_chosen_scenario(self, scenario_id: str) -> None:
+        self._state.setdefault("scenarios", {})
+        row = self._state["scenarios"].get(scenario_id)
+        if not row:
+            return
+        rid = row.get("recommendation_id")
+        for r in self._state["scenarios"].values():
+            if r.get("recommendation_id") == rid:
+                r["chosen"] = r.get("id") == scenario_id
+        _save(self._state)
+
+    def update_scenario_supplier_results(self, scenario_id: str, results: list[dict]) -> None:
+        self._state.setdefault("scenarios", {})
+        if scenario_id in self._state["scenarios"]:
+            self._state["scenarios"][scenario_id]["supplier_results"] = results
+            _save(self._state)
+
     def log_agent_run(self, entry: dict):
         entry.setdefault("id", str(uuid.uuid4()))
         entry.setdefault("started_at", _now())
@@ -232,6 +303,9 @@ class SupabaseStore:
     def soft_delete_bom(self, bom_id: str):
         db.table("boms").update({"deleted_at": _now()}).eq("id", bom_id).execute()
 
+    def update_bom_pdf_notes(self, bom_id: str, pdf_notes: str):
+        db.table("boms").update({"pdf_notes": pdf_notes}).eq("id", bom_id).execute()
+
     def upsert_event(self, event: dict) -> dict:
         event_id = event.get("id") or str(uuid.uuid4())
         row = {
@@ -260,8 +334,8 @@ class SupabaseStore:
         rec_id = str(uuid.uuid4())
         row = {
             "id": rec_id, "user_id": user_id, "event_id": event_id, "bom_id": bom_id,
-            "status": "running", "draft_email": None, "ranked_scenarios": None,
-            "enriched_event": None, "bom_analysis": None, "approved_at": None, "created_at": _now(),
+            "status": "running", "error": None, "ranked_scenarios": None,
+            "enriched_event": None, "bom_analysis": None, "created_at": _now(),
         }
         result = db.table("recommendations").insert(row).execute()
         return result.data[0] if result.data else row
@@ -276,6 +350,51 @@ class SupabaseStore:
     def list_recommendations(self, user_id: str = "demo") -> list[dict]:
         result = db.table("recommendations").select("*").eq("user_id", user_id).execute()
         return result.data or []
+
+    def save_scenarios(self, rec_id: str, ranked: list[dict]):
+        rows = []
+        for s in ranked:
+            rows.append({
+                "id": str(uuid.uuid4()),
+                "recommendation_id": rec_id,
+                "scenario_type": s.get("strategy") or s.get("scenario_type", ""),
+                "payload": s,
+                "landed_cost_delta_pct": s.get("annual_cost_delta_usd"),
+                "lead_time_change_days": int(s.get("lead_time_months", 0) * 30) if s.get("lead_time_months") else None,
+                "rank": s.get("rank"),
+                "chosen": False,
+                "supplier_results": None,
+            })
+        if rows:
+            db.table("scenarios").insert(rows).execute()
+
+    def list_scenarios_for_recommendation(self, rec_id: str) -> list[dict]:
+        result = (
+            db.table("scenarios")
+            .select("*")
+            .eq("recommendation_id", rec_id)
+            .execute()
+        )
+        rows = [_normalize_scenario_row(dict(r)) for r in (result.data or [])]
+        rows.sort(key=_scenario_sort_key)
+        return rows
+
+    def get_scenario(self, scenario_id: str) -> dict | None:
+        result = db.table("scenarios").select("*").eq("id", scenario_id).execute()
+        if not result.data:
+            return None
+        return _normalize_scenario_row(dict(result.data[0]))
+
+    def mark_chosen_scenario(self, scenario_id: str) -> None:
+        row = self.get_scenario(scenario_id)
+        if not row:
+            return
+        rid = row["recommendation_id"]
+        db.table("scenarios").update({"chosen": False}).eq("recommendation_id", rid).execute()
+        db.table("scenarios").update({"chosen": True}).eq("id", scenario_id).execute()
+
+    def update_scenario_supplier_results(self, scenario_id: str, results: list[dict]) -> None:
+        db.table("scenarios").update({"supplier_results": results}).eq("id", scenario_id).execute()
 
     def log_agent_run(self, entry: dict):
         row = {
