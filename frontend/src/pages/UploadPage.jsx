@@ -165,7 +165,7 @@ function AddProductModal({ onSave, onClose }) {
       padding: 24,
     }} onClick={onClose}>
       <div style={{
-        background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 560,
+        background: '#FFFFFF', borderRadius: 16, width: '100%', maxWidth: 560,
         maxHeight: '90vh', display: 'flex', flexDirection: 'column',
         boxShadow: '0 24px 80px rgba(0,0,0,0.25)',
       }} onClick={e => e.stopPropagation()}>
@@ -188,7 +188,7 @@ function AddProductModal({ onSave, onClose }) {
           </div>
 
           {/* Tabs */}
-          <div style={{ display: 'flex', gap: 4, background: 'var(--grey-025)', borderRadius: 10, padding: 4, marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 4, background: '#ECECEF', borderRadius: 10, padding: 4, marginBottom: 16 }}>
             {TAB_BTN('manual', '✏️  Add Parts Manually')}
             {TAB_BTN('upload', '📄  Upload CSV / PDF')}
           </div>
@@ -367,7 +367,7 @@ function AddProductModal({ onSave, onClose }) {
         <div style={{
           padding: '12px 20px', borderTop: '1px solid var(--border-1)', flexShrink: 0,
           display: 'flex', justifyContent: 'flex-end', gap: 8,
-          background: 'var(--grey-025)', borderRadius: '0 0 16px 16px',
+          background: '#F4F4F6', borderRadius: '0 0 16px 16px',
         }}>
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
           <Btn onClick={handleSave} disabled={!hasContent && !name.trim()}>
