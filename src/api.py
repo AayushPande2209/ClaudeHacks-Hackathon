@@ -904,5 +904,5 @@ def reset_stalled_pipelines():
 if __name__ == "__main__":
     import uvicorn
     # Fly.io/Production listener
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
