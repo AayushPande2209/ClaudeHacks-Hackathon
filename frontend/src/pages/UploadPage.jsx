@@ -521,12 +521,16 @@ export function UploadPage({ setPage, loadEvents, loadBoms }) {
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           minHeight: 380, textAlign: 'center',
         }}>
-          <div style={{
+          <div onClick={() => setModalOpen(true)} style={{
             width: 72, height: 72, borderRadius: 20, background: 'rgba(76,111,174,0.1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 32, marginBottom: 20,
-          }}>+</div>
-          <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Add your first product</div>
+            fontSize: 32, marginBottom: 20, cursor: 'pointer',
+            transition: 'background 0.15s',
+          }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(76,111,174,0.2)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(76,111,174,0.1)'}
+          >+</div>
+          <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Add a product</div>
           <div style={{ fontSize: 14, color: 'var(--fg-3)', maxWidth: 360, lineHeight: 1.6, marginBottom: 28 }}>
             Define a product and its parts manually, or upload a CSV / PDF and let the AI build your Bill of Materials.
           </div>
