@@ -94,13 +94,13 @@ function NewsCard({ article }) {
       rel="noopener noreferrer"
       style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
     >
-      <Glass padding={14} style={{ cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+      <Glass padding={14} style={{
+          cursor: 'pointer', transition: 'box-shadow 0.15s',
+          borderLeft: `3px solid ${risk.bar}`,
+        }}
         onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.1)'}
         onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
       >
-        {/* Risk bar accent */}
-        <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%',
-          background: risk.bar, borderRadius: '8px 0 0 8px' }} />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
           <Chip bg={risk.bg} fg={risk.fg}>{article.risk_level}</Chip>
