@@ -36,6 +36,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:3000",
+        "https://claude-hacks-hackathon.vercel.app",
         *[o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()],
     ],
     allow_credentials=True,
