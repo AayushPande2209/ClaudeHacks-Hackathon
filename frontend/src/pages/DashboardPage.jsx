@@ -46,7 +46,7 @@ function EditRowModal({ bom, row, onSave, onClose }) {
   return (
     <div style={{position:'fixed',inset:0,zIndex:1100,background:'rgba(0,0,0,0.45)',
       display:'flex',alignItems:'center',justifyContent:'center',padding:24}} onClick={onClose}>
-      <div style={{background:'var(--surface)',borderRadius:14,width:'100%',maxWidth:520,
+      <div style={{background:'#FFFFFF',borderRadius:14,width:'100%',maxWidth:520,
         boxShadow:'0 24px 80px rgba(0,0,0,0.2)',overflow:'hidden'}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:'16px 20px',borderBottom:'1px solid var(--border-1)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div>
@@ -84,7 +84,7 @@ function EditRowModal({ bom, row, onSave, onClose }) {
           </div>
         </div>
         {err && <div style={{padding:'0 20px 8px',color:'#D14343',fontSize:12}}>{err}</div>}
-        <div style={{padding:'12px 20px',borderTop:'1px solid var(--border-1)',background:'var(--grey-025)',
+        <div style={{padding:'12px 20px',borderTop:'1px solid var(--border-1)',background:'#F4F4F6',
           display:'flex',justifyContent:'flex-end',gap:8}}>
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
           <Btn onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</Btn>
