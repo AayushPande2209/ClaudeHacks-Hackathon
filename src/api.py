@@ -744,18 +744,66 @@ _LOW_KEYWORDS = [
 ]
 
 
+_CATEGORY_SIGNALS: list[tuple[str, list[str]]] = [
+    ("Electronics & Components",  ["semiconductor", "chip", "pcb", "electronic", "battery", "solar panel", "circuit"]),
+    ("Steel & Aluminum",          ["steel", "aluminum", "aluminium", "metal", "alloy"]),
+    ("Apparel & Textiles",        ["textile", "apparel", "clothing", "fabric", "garment", "cotton", "yarn"]),
+    ("Automotive Parts",          ["automotive", "auto part", "vehicle", "car part", "ev battery"]),
+    ("Agricultural & Food",       ["agricultural", "soybean", "corn", "wheat", "food", "coffee", "agriculture"]),
+    ("Chemicals & Pharma",        ["chemical", "pharmaceutical", "drug", "medicine", "fentanyl", "precursor"]),
+    ("Machinery & Equipment",     ["machinery", "equipment", "industrial", "manufacturing equipment"]),
+    ("Lumber & Paper",            ["lumber", "timber", "wood", "paper", "pulp"]),
+    ("Plastics & Packaging",      ["plastic", "polymer", "packaging", "resin"]),
+    ("China-sourced Goods",       ["china", "chinese", "beijing", "made in china", "section 301"]),
+    ("EU-sourced Goods",          ["european union", "eu tariff", "europe", "french", "german"]),
+    ("Canada & Mexico",           ["canada", "mexico", "usmca", "nafta", "canadian", "mexican"]),
+]
+
 def _score_article(title: str, description: str) -> dict:
     text = (title + " " + (description or "")).lower()
-    for kw in _HIGH_KEYWORDS:
-        if kw in text:
-            return {"level": "HIGH", "color": "#D14343", "score": 90}
-    for kw in _MEDIUM_KEYWORDS:
-        if kw in text:
-            return {"level": "MEDIUM", "color": "#D97706", "score": 55}
-    for kw in _LOW_KEYWORDS:
-        if kw in text:
-            return {"level": "LOW", "color": "#4C6FAE", "score": 25}
-    return {"level": "INFO", "color": "#6B7280", "score": 5}
+
+    high_hits  = [kw for kw in _HIGH_KEYWORDS   if kw in text]
+    med_hits   = [kw for kw in _MEDIUM_KEYWORDS  if kw in text]
+    low_hits   = [kw for kw in _LOW_KEYWORDS     if kw in text]
+
+    score = min(95, len(high_hits) * 30 + len(med_hits) * 12 + len(low_hits) * 5)
+    # Vary within tiers so cards don't all look identical
+    if high_hits:
+        score = max(score, 65 + min(30, len(high_hits) * 10))
+    elif med_hits:
+        score = max(score, 35 + min(30, len(med_hits) * 8))
+    elif low_hits:
+        score = max(score, 10 + min(20, len(low_hits) * 5))
+    else:
+        score = max(score, 4)
+
+    if score >= 65:   level, color = "HIGH",   "#D14343"
+    elif score >= 35: level, color = "MEDIUM",  "#D97706"
+    elif score >= 12: level, color = "LOW",     "#4C6FAE"
+    else:             level, color = "INFO",    "#6B7280"
+
+    # Build why string from matched keywords
+    triggers = high_hits + med_hits
+    why = ""
+    if triggers:
+        why = f"Triggered by: {', '.join(triggers[:4])}"
+        if level == "HIGH":
+            why += ". Immediate action may be needed."
+        elif level == "MEDIUM":
+            why += ". Monitor for escalation."
+
+    # Detect affected product categories
+    affected_categories = [
+        cat for cat, signals in _CATEGORY_SIGNALS if any(s in text for s in signals)
+    ]
+
+    return {
+        "level": level,
+        "color": color,
+        "score": score,
+        "why": why,
+        "affected_categories": affected_categories[:4],
+    }
 
 
 def _fetch_newsapi(query: str, api_key: str, page_size: int = 10) -> list:
@@ -819,6 +867,8 @@ def get_trade_news(refresh: bool = False):
                 "risk_level": risk["level"],
                 "risk_color": risk["color"],
                 "risk_score": risk["score"],
+                "risk_why": risk.get("why", ""),
+                "affected_categories": risk.get("affected_categories", []),
             })
 
     # Sort by risk score desc then publish date
