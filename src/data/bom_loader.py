@@ -133,16 +133,38 @@ def parse_bom_csv(csv_file: bytes | io.IOBase, filename: str = "bom.csv") -> dic
     if not isinstance(csv_file, (bytes, bytearray)):
         raise TypeError("csv_file must be bytes or a file-like object")
 
-    suffix = Path(filename).suffix.lower()
-    delimiter = "\t" if suffix == ".tsv" else ","
     text = csv_file.decode("utf-8-sig", errors="replace")
-    reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    
+    # Robust header hunt
+    best_delimiter = ","
+    best_start_idx = 0
+    max_known_headers = -1
+    known_keywords = {"sku", "description", "supplier", "country", "cost", "quantity", "hs", "item", "part"}
+
+    for d in [",", ";", "\t", "|"]:
+        for i, line in enumerate(lines[:10]): # Check first 10 lines
+            headers = [h.strip().lower() for h in line.split(d)]
+            matches = sum(1 for h in headers if any(k in h for k in known_keywords))
+            if matches > max_known_headers:
+                max_known_headers = matches
+                best_delimiter = d
+                best_start_idx = i
+    
+    clean_text = "\n".join(lines[best_start_idx:])
+    reader = csv.DictReader(io.StringIO(clean_text), delimiter=best_delimiter)
 
     rows = []
     errors = []
     for i, raw in enumerate(reader):
         rows.append(_normalize_uploaded_row(dict(raw), i, errors))
-    return {"rows": rows, "errors": errors}
+    
+    return {
+        "rows": rows, 
+        "errors": errors, 
+        "raw_headers": reader.fieldnames,
+        "sample_lines": lines[:3]
+    }
 
 
 def extract_csv_text(csv_file: bytes | io.IOBase, filename: str = "bom.csv", max_chars: int = 4000) -> str:

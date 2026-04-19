@@ -327,77 +327,79 @@ async def upload_materials(
     if not bom_csv and not pdfs:
         raise HTTPException(400, "At least one file is required")
 
-    bom_id = None
-    row_count = 0
-    preview_rows: list[dict] = []
-    validation_errors: list[str] = []
-    pdf_chars = 0
-    tariff_event_id = None  # always defined
-
-    if bom_csv and bom_csv.filename:
-        content = await bom_csv.read()
-        name = (bom_csv.filename or "materials").rsplit(".", 1)[0]
-        parsed = parse_bom_csv(content, filename=bom_csv.filename)
-        rows = parsed["rows"]
-        validation_errors = parsed["errors"]
-        if not rows:
-            raise HTTPException(400, "No rows found in spreadsheet")
-        missing_country = [r.get("sku_code") or f"row {i+1}" for i, r in enumerate(rows) if not r.get("supplier_country")]
-        if len(missing_country) == len(rows):
-            raise HTTPException(
-                422,
-                "Supplier country is missing from every row in your spreadsheet. "
-                "This field is required for tariff exposure analysis and map visualisation. "
-                "Please add a 'Supplier Country' column (full country name or ISO-2 code, e.g. 'China' or 'CN') and re-upload."
-            )
-        if missing_country:
-            validation_errors.append(
-                f"Supplier country missing for {len(missing_country)} row(s): "
-                + ", ".join(missing_country[:10])
-                + (f" … and {len(missing_country)-10} more" if len(missing_country) > 10 else "")
-                + ". These rows will have no map arc or tariff exposure."
-            )
-        # Enrich missing HS codes before storing
-        try:
-            mapper = BOMMapperAgent()
-            rows = await mapper._enrich_missing_hs_codes(rows)
-        except Exception as e:
-            validation_errors.append(f"HS enrichment skipped: {e}")
-        bom = store.create_bom(name, user_id=user_id)
-        store.add_bom_rows(bom["id"], rows)
-        bom_id = bom["id"]
-        row_count = len(rows)
-        preview_rows = [
-            {k: r[k] for k in ("sku_code", "description", "supplier_country", "unit_cost_usd", "hs_code") if k in r}
-            for r in rows[:5]
-        ]
-        tariff_event_id = await _generate_bom_tariff_event(bom_id, name, rows)
-
-    pdf_parts: list[str] = []
-    for pdf in (pdfs or []):
-        if pdf and pdf.filename:
-            raw = await pdf.read()
+    try:
+        if bom_csv and bom_csv.filename:
+            content = await bom_csv.read()
+            name = (bom_csv.filename or "materials").rsplit(".", 1)[0]
+            parsed = parse_bom_csv(content, filename=bom_csv.filename)
+            rows = parsed["rows"]
+            validation_errors = parsed["errors"]
+            if not rows:
+                raise HTTPException(400, "No rows found in spreadsheet")
+            
+            missing_country = [r.get("sku_code") or f"row {i+1}" for i, r in enumerate(rows) if not r.get("supplier_country")]
+            if len(missing_country) == len(rows):
+                raw_headers = parsed.get("raw_headers", [])
+                sample = parsed.get("sample_lines", [])
+                raise HTTPException(
+                    422,
+                    f"Supplier country missing from all rows. Detected headers: {raw_headers}. "
+                    f"First 3 lines of file: {sample}. "
+                    "Please ensure your CSV has a 'Country' column and re-upload."
+                )
+            if missing_country:
+                validation_errors.append(
+                    f"Supplier country missing for {len(missing_country)} row(s). These rows will have no map arc or tariff exposure."
+                )
+            # Enrich missing HS codes before storing
             try:
-                pdf_parts.append(extract_pdf_text(raw))
+                mapper = BOMMapperAgent()
+                rows = await mapper._enrich_missing_hs_codes(rows)
             except Exception as e:
-                validation_errors.append(f"PDF {pdf.filename}: {e}")
-    if pdf_parts:
-        pdf_chars = sum(len(t) for t in pdf_parts)
-        if bom_id:
-            store.update_bom_pdf_notes(bom_id, "\n\n".join(pdf_parts))
-        elif pdf_parts:
-            bom = store.create_bom("pdf-materials", user_id=user_id)
-            store.update_bom_pdf_notes(bom["id"], "\n\n".join(pdf_parts))
+                validation_errors.append(f"HS enrichment skipped: {e}")
+            
+            bom = store.create_bom(name, user_id=user_id)
+            store.add_bom_rows(bom["id"], rows)
             bom_id = bom["id"]
+            row_count = len(rows)
+            preview_rows = [
+                {k: r[k] for k in ("sku_code", "description", "supplier_country", "unit_cost_usd", "hs_code") if k in r}
+                for r in rows[:5]
+            ]
+            tariff_event_id = await _generate_bom_tariff_event(bom_id, name, rows)
 
-    return {
-        "bom_id": bom_id,
-        "row_count": row_count,
-        "preview_rows": preview_rows,
-        "pdf_chars_extracted": pdf_chars,
-        "validation_errors": validation_errors,
-        "tariff_event_id": tariff_event_id if bom_id else None,
-    }
+        pdf_parts: list[str] = []
+        for pdf in (pdfs or []):
+            if pdf and pdf.filename:
+                raw = await pdf.read()
+                try:
+                    pdf_parts.append(extract_pdf_text(raw))
+                except Exception as e:
+                    validation_errors.append(f"PDF {pdf.filename}: {e}")
+        if pdf_parts:
+            pdf_chars = sum(len(t) for t in pdf_parts)
+            if bom_id:
+                store.update_bom_pdf_notes(bom_id, "\n\n".join(pdf_parts))
+            elif pdf_parts:
+                bom = store.create_bom("pdf-materials", user_id=user_id)
+                store.update_bom_pdf_notes(bom["id"], "\n\n".join(pdf_parts))
+                bom_id = bom["id"]
+
+        return {
+            "bom_id": bom_id,
+            "row_count": row_count,
+            "preview_rows": preview_rows,
+            "pdf_chars_extracted": pdf_chars,
+            "validation_errors": validation_errors,
+            "tariff_event_id": tariff_event_id if bom_id else None,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        import traceback
+        err_msg = f"Internal Exception: {exc}\n{traceback.format_exc()}"
+        print(f"[upload] Critical failure: {err_msg}")
+        raise HTTPException(500, f"Critical upload failure: {str(exc)}")
 
 
 # ────────────────────────────────────────────────────────────────────────────
