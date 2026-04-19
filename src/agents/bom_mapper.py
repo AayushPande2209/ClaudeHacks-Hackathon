@@ -142,13 +142,37 @@ class BOMMapperAgent:
             return_exceptions=True,
         )
 
-        affected = []
-        for r in chunk_results:
-            if isinstance(r, Exception):
-                print(f"[BOMMapper] Chunk error (skipped): {r}")
-                continue
-            if isinstance(r, list):
-                affected.extend(r)
+        # --- Emergency Fallback: If AI found nothing, do a manual keyword sweep ---
+        if not affected:
+            print("[BOMMapper] AI match returned zero; falling back to keyword sweep.")
+            target_countries = [c.upper() for c in enriched_event.get("affected_countries", [])]
+            target_hs_parents = [h[:2] for h in enriched_event.get("hs_codes", []) if len(h) >= 2]
+            
+            for r in bom:
+                country = (r.get("supplier_country") or "").upper()
+                hs = (r.get("hs_code") or "")
+                
+                # Broad match on country OR HS parent
+                if country in target_countries or any(hs.startswith(p) for p in target_hs_parents):
+                    affected.append({
+                        "sku": r.get("sku_code") or r.get("sku") or "Unknown",
+                        "description": r.get("description", "Manual Match"),
+                        "hs_code": hs,
+                        "supplier": r.get("supplier_name", "Unknown"),
+                        "supplier_country": r.get("supplier_country", "Unknown"),
+                        "annual_spend_usd": float(r.get("unit_cost_usd", 0)) * float(r.get("annual_quantity", 0)) if r.get("unit_cost_usd") and r.get("annual_quantity") else 0.0,
+                        "annual_tariff_impact_usd": 0.0, # Will be estimated below
+                        "severity": "MEDIUM",
+                        "match_level": "Keyword Fallback",
+                    })
+
+        # Calculate impact for all affected (including fallbacks)
+        rate_delta = enriched_event.get("rate_change_bps", 0) / 10000.0  # bps to decimal
+        for s in affected:
+            if s.get("annual_tariff_impact_usd") == 0:
+                s["annual_tariff_impact_usd"] = s.get("annual_spend_usd", 0) * rate_delta
+            if s.get("severity") == "MEDIUM" and s.get("annual_tariff_impact_usd", 0) > 50000:
+                s["severity"] = "HIGH"
 
         affected.sort(key=lambda x: x.get("annual_tariff_impact_usd", 0), reverse=True)
 
