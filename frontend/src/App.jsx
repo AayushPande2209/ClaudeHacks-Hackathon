@@ -73,7 +73,7 @@ export default function App() {
             <UploadPage setPage={navigate} loadEvents={loadEvents} loadBoms={loadBoms} />
           )}
           {page === 'report' && <AuditPage />}
-          {page === 'events' && <EventsPage setPage={navigate} setTargetRec={setTargetRec} />}
+          {page === 'events' && <EventsPage setPage={navigate} setTargetRec={setTargetRec} setActiveMapEvent={setActiveMapEvent} activeMapEvent={activeMapEvent} />}
           {page === 'scenarios' && <RecommendationsPage targetRec={targetRec} setTargetRec={setTargetRec} />}
         </main>
       )}

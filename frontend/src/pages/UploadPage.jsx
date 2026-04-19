@@ -313,7 +313,15 @@ function AddProductModal({ onSave, onClose }) {
           {tab === 'upload' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ fontSize: 13, color: 'var(--fg-2)', lineHeight: 1.6, padding: '10px 12px', background: 'rgba(76,111,174,0.06)', borderRadius: 8 }}>
-                Upload a <strong>CSV/TSV</strong> and our AI extracts all parts, supplier countries, HS codes, and costs automatically. Attach <strong>PDFs</strong> for extra context.
+                Upload a <strong>CSV/TSV</strong> and our AI extracts all parts automatically. Attach <strong>PDFs</strong> for extra context.
+                <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg-3)', lineHeight: 1.8 }}>
+                  Required columns:<br/>
+                  <span style={{ color: '#D97757', fontWeight: 600 }}>Supplier Country</span> · SKU Code · Description · Supplier<br/>
+                  Optional: Quantity · Unit Cost (USD) · HS Code · Lead Time
+                </div>
+                <div style={{ marginTop: 6, fontSize: 11, color: '#D14343' }}>
+                  ⚠ <strong>Supplier Country is required</strong> for map arcs and tariff exposure analysis.
+                </div>
               </div>
 
               {/* CSV drop zone */}
@@ -330,7 +338,7 @@ function AddProductModal({ onSave, onClose }) {
                     {csvFile ? csvFile.name : 'Click to choose CSV / TSV'}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 4 }}>
-                    SKU · Description · Supplier Country · Cost · HS Code
+                    <span style={{ color: '#D97757', fontWeight: 600 }}>Supplier Country*</span> · SKU · Description · Supplier · Cost · HS Code
                   </div>
                   <input ref={csvRef} type="file" accept=".csv,.tsv" style={{ display: 'none' }}
                     onChange={e => setCsvFile(e.target.files?.[0] || null)} />
