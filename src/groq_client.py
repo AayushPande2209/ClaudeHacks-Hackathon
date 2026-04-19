@@ -11,9 +11,9 @@ from env import load_app_env, require_env
 
 load_app_env()
 
-# ── Rate limiter: max 28 req/min, max 4 concurrent ──────────────────────────
-_MAX_PER_MINUTE = 28
-_CONCURRENCY = 4
+# ── Rate limiter: max 50 req/min, max 8 concurrent ──────────────────────────
+_MAX_PER_MINUTE = 50
+_CONCURRENCY = 8
 _groq_semaphore: asyncio.Semaphore | None = None
 _request_times: deque[float] = deque()
 

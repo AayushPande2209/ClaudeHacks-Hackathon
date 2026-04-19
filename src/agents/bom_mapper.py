@@ -9,7 +9,7 @@ import httpx
 from pydantic import BaseModel
 from groq_client import chat_with_fallback, create_groq_client, get_fallback_model, get_primary_model
 from utils.context_builder import compile_business_context
-CHUNK_SIZE = 50
+CHUNK_SIZE = 100
 
 
 class BOMAnalysis(BaseModel):
