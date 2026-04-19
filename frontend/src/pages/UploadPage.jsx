@@ -124,6 +124,7 @@ function ProductCard({ product, onRemove }) {
 
 function AddProductModal({ onSave, onClose }) {
   const [name, setName] = useState('');
+  const [tab, setTab] = useState('manual'); // 'manual' | 'upload'
   const [parts, setParts] = useState([]);
   const [newPart, setNewPart] = useState(EMPTY_PART);
   const [csvFile, setCsvFile] = useState(null);
@@ -134,17 +135,12 @@ function AddProductModal({ onSave, onClose }) {
   const pdfRef = useRef();
 
   function addPart() {
-    if (!newPart.description && !newPart.sku_code) {
-      setPartError('Description or SKU is required.');
-      return;
-    }
+    if (!newPart.description && !newPart.sku_code) { setPartError('Description or SKU required.'); return; }
     setParts(p => [...p, { ...newPart }]);
     setNewPart(EMPTY_PART);
     setPartError('');
   }
-
   function removePart(i) { setParts(p => p.filter((_, idx) => idx !== i)); }
-
   function handleSave() {
     if (!name.trim() && parts.length === 0 && !csvFile && pdfFiles.length === 0) return;
     onSave({ name: name.trim() || 'Untitled Product', parts, csvFile, pdfFiles });
@@ -152,58 +148,57 @@ function AddProductModal({ onSave, onClose }) {
 
   const hasContent = parts.length > 0 || csvFile || pdfFiles.length > 0;
 
+  const TAB_BTN = (key, label) => (
+    <button key={key} onClick={() => setTab(key)} style={{
+      flex: 1, padding: '9px 0', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+      borderRadius: 8,
+      background: tab === key ? 'var(--surface)' : 'transparent',
+      color: tab === key ? 'var(--fg-1)' : 'var(--fg-3)',
+      boxShadow: tab === key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+    }}>{label}</button>
+  );
+
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      position: 'fixed', inset: 0, zIndex: 2000,
+      background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 24,
     }} onClick={onClose}>
       <div style={{
-        background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 780,
-        maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,0.2)',
+        background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 560,
+        maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 24px 80px rgba(0,0,0,0.25)',
       }} onClick={e => e.stopPropagation()}>
 
-        {/* Modal header */}
-        <div style={{ padding: '20px 24px 0', borderBottom: '1px solid var(--border-1)', paddingBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 17 }}>Add Product</div>
-            <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 2 }}>
-              Define a product, add its parts, or let the AI extract them from your files.
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--fg-3)', lineHeight: 1 }}>✕</button>
+        {/* Header */}
+        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border-1)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>Add Product</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--fg-3)', lineHeight: 1, padding: 4 }}>✕</button>
         </div>
 
-        <div style={{ padding: '20px 24px' }}>
+        {/* Scrollable body */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '16px 20px' }}>
 
           {/* Product name */}
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ ...labelStyle, fontSize: 13, fontWeight: 600, color: 'var(--fg-1)' }}>Product Name</label>
-            <input
-              type="text"
-              placeholder="e.g. House Blend Coffee, Retail Packaging Kit…"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              style={{ ...inputStyle, fontSize: 15, padding: '10px 12px' }}
-              autoFocus
-            />
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Product Name</label>
+            <input type="text" placeholder="e.g. House Blend Coffee, Retail Packaging Kit…"
+              value={name} onChange={e => setName(e.target.value)} autoFocus
+              style={{ ...inputStyle, fontSize: 14, padding: '9px 11px' }} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: 4, background: 'var(--grey-025)', borderRadius: 10, padding: 4, marginBottom: 16 }}>
+            {TAB_BTN('manual', '✏️  Add Parts Manually')}
+            {TAB_BTN('upload', '📄  Upload CSV / PDF')}
+          </div>
 
-            {/* LEFT — Parts builder */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div style={{ fontWeight: 600, fontSize: 13 }}>Parts List</div>
-                <button onClick={() => setShowAdvanced(a => !a)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--accent)' }}>
-                  {showAdvanced ? '− Fewer fields' : '+ More fields'}
-                </button>
-              </div>
-
-              {/* Parts table */}
+          {/* Manual tab */}
+          {tab === 'manual' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Parts added so far */}
               {parts.length > 0 && (
-                <div style={{ marginBottom: 12, overflowX: 'auto', borderRadius: 8, border: '1px solid var(--border-1)' }}>
+                <div style={{ borderRadius: 8, border: '1px solid var(--border-1)', overflow: 'hidden', marginBottom: 4 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
                     <thead>
                       <tr style={{ background: 'var(--grey-025)', color: 'var(--fg-3)' }}>
@@ -216,12 +211,11 @@ function AddProductModal({ onSave, onClose }) {
                       {parts.map((p, i) => (
                         <tr key={i} style={{ borderTop: '1px solid var(--border-1)' }}>
                           <td style={{ padding: '4px 8px' }}>{p.sku_code || '—'}</td>
-                          <td style={{ padding: '4px 8px', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</td>
+                          <td style={{ padding: '4px 8px', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</td>
                           <td style={{ padding: '4px 8px' }}>{p.supplier_country}</td>
                           <td style={{ padding: '4px 8px' }}>{p.unit_cost_usd ? `$${Number(p.unit_cost_usd).toFixed(2)}` : '—'}</td>
                           <td style={{ padding: '4px 8px' }}>
-                            <button onClick={() => removePart(i)}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#D14343', fontSize: 13 }}>✕</button>
+                            <button onClick={() => removePart(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#D14343', fontSize: 13 }}>✕</button>
                           </td>
                         </tr>
                       ))}
@@ -230,184 +224,154 @@ function AddProductModal({ onSave, onClose }) {
                 </div>
               )}
 
-              {/* New part form */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div>
-                    <label style={labelStyle}>SKU Code</label>
-                    <input type="text" placeholder="e.g. GCB-ETH-001" value={newPart.sku_code}
-                      style={inputStyle}
-                      onChange={e => setNewPart(p => ({ ...p, sku_code: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Supplier Country <span style={{ color: '#D14343' }}>*</span></label>
-                    <input type="text" placeholder="China, Vietnam, CN…" value={newPart.supplier_country}
-                      style={inputStyle}
-                      onChange={e => setNewPart(p => ({ ...p, supplier_country: e.target.value }))} />
-                  </div>
+              {/* New part inputs */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={labelStyle}>SKU Code</label>
+                  <input type="text" placeholder="GCB-ETH-001" value={newPart.sku_code}
+                    style={inputStyle} onChange={e => setNewPart(p => ({ ...p, sku_code: e.target.value }))} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Description <span style={{ color: '#D14343' }}>*</span></label>
-                  <input type="text" placeholder="e.g. 12oz Kraft Bag w/ One-Way Valve" value={newPart.description}
-                    style={inputStyle}
-                    onChange={e => setNewPart(p => ({ ...p, description: e.target.value }))}
-                    onKeyDown={e => e.key === 'Enter' && addPart()} />
+                  <label style={labelStyle}>Supplier Country <span style={{ color: '#D14343' }}>*</span></label>
+                  <input type="text" placeholder="China, Vietnam, CN…" value={newPart.supplier_country}
+                    style={inputStyle} onChange={e => setNewPart(p => ({ ...p, supplier_country: e.target.value }))} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div>
-                    <label style={labelStyle}>Unit Cost (USD)</label>
-                    <input type="number" placeholder="0.00" value={newPart.unit_cost_usd}
-                      style={inputStyle} min="0" step="0.01"
-                      onChange={e => setNewPart(p => ({ ...p, unit_cost_usd: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Annual Quantity</label>
-                    <input type="number" placeholder="e.g. 5000" value={newPart.annual_quantity}
-                      style={inputStyle} min="0"
-                      onChange={e => setNewPart(p => ({ ...p, annual_quantity: e.target.value }))} />
-                  </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Description <span style={{ color: '#D14343' }}>*</span></label>
+                <input type="text" placeholder="e.g. 12oz Kraft Bag w/ One-Way Valve" value={newPart.description}
+                  style={inputStyle} onChange={e => setNewPart(p => ({ ...p, description: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && addPart()} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={labelStyle}>Unit Cost (USD)</label>
+                  <input type="number" placeholder="0.00" min="0" step="0.01" value={newPart.unit_cost_usd}
+                    style={inputStyle} onChange={e => setNewPart(p => ({ ...p, unit_cost_usd: e.target.value }))} />
                 </div>
+                <div>
+                  <label style={labelStyle}>Annual Quantity</label>
+                  <input type="number" placeholder="5000" min="0" value={newPart.annual_quantity}
+                    style={inputStyle} onChange={e => setNewPart(p => ({ ...p, annual_quantity: e.target.value }))} />
+                </div>
+              </div>
 
-                {showAdvanced && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', background: 'var(--grey-025)', borderRadius: 8, border: '1px solid var(--border-1)' }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-3)', marginBottom: 2 }}>ADVANCED FIELDS</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <div>
-                        <label style={labelStyle}>Supplier Name</label>
-                        <input type="text" placeholder="Company name" value={newPart.supplier_name}
-                          style={inputStyle}
-                          onChange={e => setNewPart(p => ({ ...p, supplier_name: e.target.value }))} />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>HS Code (optional)</label>
-                        <input type="text" placeholder="e.g. 0901.11" value={newPart.hs_code}
-                          style={inputStyle}
-                          onChange={e => setNewPart(p => ({ ...p, hs_code: e.target.value }))} />
-                      </div>
+              {showAdvanced && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', background: 'var(--grey-025)', borderRadius: 8, border: '1px solid var(--border-1)' }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-3)', letterSpacing: '0.05em' }}>ADVANCED</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div>
+                      <label style={labelStyle}>Supplier Name</label>
+                      <input type="text" placeholder="Company name" value={newPart.supplier_name}
+                        style={inputStyle} onChange={e => setNewPart(p => ({ ...p, supplier_name: e.target.value }))} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                      <div>
-                        <label style={labelStyle}>Supply Tier</label>
-                        <select value={newPart.tier} style={{ ...inputStyle }}
-                          onChange={e => setNewPart(p => ({ ...p, tier: e.target.value }))}>
-                          <option value="1">Tier 1 — Direct</option>
-                          <option value="2">Tier 2</option>
-                          <option value="3">Tier 3</option>
-                          <option value="4">Tier 4 — Raw material</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Lead Time (weeks)</label>
-                        <input type="number" placeholder="e.g. 8" value={newPart.lead_time_weeks}
-                          style={inputStyle} min="0"
-                          onChange={e => setNewPart(p => ({ ...p, lead_time_weeks: e.target.value }))} />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-                        <label style={{ ...labelStyle, marginBottom: 0 }}>&nbsp;</label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: 8 }}>
-                          <input type="checkbox" checked={newPart.critical_path}
-                            onChange={e => setNewPart(p => ({ ...p, critical_path: e.target.checked }))} />
-                          <span style={{ fontSize: 12, color: 'var(--fg-2)' }}>Critical path</span>
-                        </label>
-                      </div>
+                    <div>
+                      <label style={labelStyle}>HS Code</label>
+                      <input type="text" placeholder="0901.11" value={newPart.hs_code}
+                        style={inputStyle} onChange={e => setNewPart(p => ({ ...p, hs_code: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Supply Tier</label>
+                      <select value={newPart.tier} style={inputStyle} onChange={e => setNewPart(p => ({ ...p, tier: e.target.value }))}>
+                        <option value="1">Tier 1 — Direct</option>
+                        <option value="2">Tier 2</option>
+                        <option value="3">Tier 3</option>
+                        <option value="4">Tier 4 — Raw</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Lead Time (weeks)</label>
+                      <input type="number" placeholder="8" min="0" value={newPart.lead_time_weeks}
+                        style={inputStyle} onChange={e => setNewPart(p => ({ ...p, lead_time_weeks: e.target.value }))} />
                     </div>
                   </div>
-                )}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={newPart.critical_path}
+                      onChange={e => setNewPart(p => ({ ...p, critical_path: e.target.checked }))} />
+                    <span style={{ fontSize: 12, color: 'var(--fg-2)' }}>Critical path</span>
+                  </label>
+                </div>
+              )}
 
-                {partError && <div style={{ color: '#D14343', fontSize: 12 }}>{partError}</div>}
+              {partError && <div style={{ color: '#D14343', fontSize: 12 }}>{partError}</div>}
 
+              <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={addPart} style={{
-                  padding: '8px 14px', borderRadius: 8, border: '1px dashed var(--accent)',
+                  flex: 1, padding: '8px 14px', borderRadius: 8, border: '1px dashed var(--accent)',
                   background: 'rgba(76,111,174,0.06)', color: 'var(--accent)', fontSize: 13,
-                  fontWeight: 600, cursor: 'pointer', width: '100%',
+                  fontWeight: 600, cursor: 'pointer',
                 }}>+ Add Part</button>
+                <button onClick={() => setShowAdvanced(a => !a)} style={{
+                  padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-1)',
+                  background: 'none', color: 'var(--fg-3)', fontSize: 12, cursor: 'pointer',
+                }}>{showAdvanced ? 'Fewer fields' : 'More fields'}</button>
               </div>
             </div>
+          )}
 
-            {/* RIGHT — File upload / AI extraction */}
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>
-                AI Extract from Files
-              </div>
-              <div style={{
-                padding: 16, borderRadius: 10, border: '1px solid var(--border-1)',
-                background: 'var(--grey-025)', marginBottom: 12,
-              }}>
-                <div style={{ fontSize: 12, color: 'var(--fg-2)', marginBottom: 12, lineHeight: 1.5 }}>
-                  Upload a <strong>CSV/TSV</strong> or <strong>PDF</strong> and our AI will extract all parts, supplier countries, HS codes, and costs automatically.
-                </div>
-
-                <div style={{ marginBottom: 14 }}>
-                  <label style={labelStyle}>Materials Spreadsheet (CSV / TSV)</label>
-                  <div style={{
-                    border: '2px dashed var(--border-1)', borderRadius: 8,
-                    padding: '16px 12px', textAlign: 'center', cursor: 'pointer',
-                    background: csvFile ? 'rgba(22,163,74,0.05)' : 'transparent',
-                    borderColor: csvFile ? '#16a34a' : 'var(--border-1)',
-                  }} onClick={() => csvRef.current?.click()}>
-                    <div style={{ fontSize: 22, marginBottom: 4 }}>📄</div>
-                    <div style={{ fontSize: 12, color: csvFile ? '#16a34a' : 'var(--fg-3)' }}>
-                      {csvFile ? `✓ ${csvFile.name}` : 'Click to choose CSV / TSV'}
-                    </div>
-                    <input ref={csvRef} type="file" accept=".csv,.tsv" style={{ display: 'none' }}
-                      onChange={e => setCsvFile(e.target.files?.[0] || null)} />
-                  </div>
-                  {csvFile && (
-                    <button onClick={() => setCsvFile(null)}
-                      style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-3)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                      Remove
-                    </button>
-                  )}
-                </div>
-
-                <div>
-                  <label style={labelStyle}>Supporting PDFs <span style={{ color: 'var(--fg-3)' }}>(optional)</span></label>
-                  <div style={{
-                    border: '2px dashed var(--border-1)', borderRadius: 8,
-                    padding: '16px 12px', textAlign: 'center', cursor: 'pointer',
-                    background: pdfFiles.length ? 'rgba(22,163,74,0.05)' : 'transparent',
-                    borderColor: pdfFiles.length ? '#16a34a' : 'var(--border-1)',
-                  }} onClick={() => pdfRef.current?.click()}>
-                    <div style={{ fontSize: 22, marginBottom: 4 }}>📑</div>
-                    <div style={{ fontSize: 12, color: pdfFiles.length ? '#16a34a' : 'var(--fg-3)' }}>
-                      {pdfFiles.length
-                        ? `✓ ${pdfFiles.length} file${pdfFiles.length > 1 ? 's' : ''}: ${pdfFiles.map(f => f.name).join(', ')}`
-                        : 'Product sheets, tariff rulings…'}
-                    </div>
-                    <input ref={pdfRef} type="file" accept=".pdf" multiple style={{ display: 'none' }}
-                      onChange={e => setPdfFiles(Array.from(e.target.files || []))} />
-                  </div>
-                  {pdfFiles.length > 0 && (
-                    <button onClick={() => setPdfFiles([])}
-                      style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-3)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                      Remove all
-                    </button>
-                  )}
-                </div>
+          {/* Upload tab */}
+          {tab === 'upload' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ fontSize: 13, color: 'var(--fg-2)', lineHeight: 1.6, padding: '10px 12px', background: 'rgba(76,111,174,0.06)', borderRadius: 8 }}>
+                Upload a <strong>CSV/TSV</strong> and our AI extracts all parts, supplier countries, HS codes, and costs automatically. Attach <strong>PDFs</strong> for extra context.
               </div>
 
-              {/* SPEC info card */}
-              <div style={{ padding: '12px 14px', borderRadius: 8, background: 'rgba(76,111,174,0.06)', border: '1px solid rgba(76,111,174,0.15)' }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', marginBottom: 6 }}>CSV COLUMNS ACCEPTED</div>
-                <div style={{ fontSize: 11, color: 'var(--fg-2)', lineHeight: 1.6 }}>
-                  SKU Code · Description · Supplier · <strong>Supplier Country</strong> (required) · Quantity · Unit Cost · HS Code
-                  <br />
-                  <span style={{ color: 'var(--fg-3)' }}>Aliases: "Country of origin", "Made in", "Manufacturing country"</span>
+              {/* CSV drop zone */}
+              <div>
+                <label style={{ ...labelStyle, marginBottom: 8 }}>Materials Spreadsheet (CSV / TSV)</label>
+                <div onClick={() => csvRef.current?.click()} style={{
+                  border: `2px dashed ${csvFile ? '#16a34a' : 'var(--border-1)'}`,
+                  borderRadius: 10, padding: '24px 16px', textAlign: 'center', cursor: 'pointer',
+                  background: csvFile ? 'rgba(22,163,74,0.05)' : 'var(--grey-025)',
+                  transition: 'border-color 0.15s',
+                }}>
+                  <div style={{ fontSize: 28, marginBottom: 6 }}>{csvFile ? '✅' : '📄'}</div>
+                  <div style={{ fontSize: 13, color: csvFile ? '#16a34a' : 'var(--fg-2)', fontWeight: csvFile ? 600 : 400 }}>
+                    {csvFile ? csvFile.name : 'Click to choose CSV / TSV'}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 4 }}>
+                    SKU · Description · Supplier Country · Cost · HS Code
+                  </div>
+                  <input ref={csvRef} type="file" accept=".csv,.tsv" style={{ display: 'none' }}
+                    onChange={e => setCsvFile(e.target.files?.[0] || null)} />
                 </div>
+                {csvFile && (
+                  <button onClick={() => setCsvFile(null)} style={{ marginTop: 5, fontSize: 11, color: 'var(--fg-3)', background: 'none', border: 'none', cursor: 'pointer' }}>Remove</button>
+                )}
+              </div>
+
+              {/* PDF drop zone */}
+              <div>
+                <label style={{ ...labelStyle, marginBottom: 8 }}>Supporting PDFs <span style={{ color: 'var(--fg-3)', fontWeight: 400 }}>(optional)</span></label>
+                <div onClick={() => pdfRef.current?.click()} style={{
+                  border: `2px dashed ${pdfFiles.length ? '#16a34a' : 'var(--border-1)'}`,
+                  borderRadius: 10, padding: '20px 16px', textAlign: 'center', cursor: 'pointer',
+                  background: pdfFiles.length ? 'rgba(22,163,74,0.05)' : 'var(--grey-025)',
+                }}>
+                  <div style={{ fontSize: 28, marginBottom: 6 }}>{pdfFiles.length ? '✅' : '📑'}</div>
+                  <div style={{ fontSize: 13, color: pdfFiles.length ? '#16a34a' : 'var(--fg-2)', fontWeight: pdfFiles.length ? 600 : 400 }}>
+                    {pdfFiles.length ? `${pdfFiles.length} file${pdfFiles.length > 1 ? 's' : ''} selected` : 'Product sheets, tariff rulings…'}
+                  </div>
+                  <input ref={pdfRef} type="file" accept=".pdf" multiple style={{ display: 'none' }}
+                    onChange={e => setPdfFiles(Array.from(e.target.files || []))} />
+                </div>
+                {pdfFiles.length > 0 && (
+                  <button onClick={() => setPdfFiles([])} style={{ marginTop: 5, fontSize: 11, color: 'var(--fg-3)', background: 'none', border: 'none', cursor: 'pointer' }}>Remove all</button>
+                )}
               </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Modal footer */}
+        {/* Footer */}
         <div style={{
-          padding: '14px 24px', borderTop: '1px solid var(--border-1)',
-          display: 'flex', justifyContent: 'flex-end', gap: 10,
+          padding: '12px 20px', borderTop: '1px solid var(--border-1)', flexShrink: 0,
+          display: 'flex', justifyContent: 'flex-end', gap: 8,
           background: 'var(--grey-025)', borderRadius: '0 0 16px 16px',
         }}>
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
           <Btn onClick={handleSave} disabled={!hasContent && !name.trim()}>
-            Save & Upload Product
+            Save &amp; Upload
           </Btn>
         </div>
       </div>
