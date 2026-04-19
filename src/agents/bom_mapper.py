@@ -89,7 +89,9 @@ class BOMMapperAgent:
         # Enrich missing HS codes via Census/USITC if keys available
         if os.getenv("CENSUS_API_KEY"):
             bom = await self._enrich_missing_hs_codes(bom)
-            
+
+        bom = await self._infer_missing_supplier_countries(bom)
+
         chunks = [bom[i:i + CHUNK_SIZE] for i in range(0, len(bom), CHUNK_SIZE)]
         print(f"[BOMMapper] Processing {len(chunks)} chunk(s) of ≤{CHUNK_SIZE} SKUs each")
 
@@ -107,6 +109,17 @@ class BOMMapperAgent:
                 affected.extend(r)
 
         affected.sort(key=lambda x: x.get("annual_tariff_impact_usd", 0), reverse=True)
+
+        bom_by_sku = {}
+        for r in bom:
+            k = (r.get("sku_code") or r.get("sku") or "").strip()
+            if k:
+                bom_by_sku[k] = r
+        for s in affected:
+            key = (s.get("sku") or s.get("sku_code") or "").strip()
+            br = bom_by_sku.get(key) or {}
+            if br.get("supplier_country_inferred"):
+                s["supplier_country_inferred"] = True
 
         total_impact = sum(s.get("annual_tariff_impact_usd", 0) for s in affected)
         critical_count = sum(1 for s in affected if s.get("severity") == "CRITICAL")
@@ -211,6 +224,82 @@ class BOMMapperAgent:
                     print(f"[BOMMapper] {row.get('sku_code')}: resolved HS {code}")
         except Exception as exc:
             print(f"[BOMMapper] Batch HS classification failed: {exc}")
+        return bom
+
+    async def _infer_missing_supplier_countries(self, bom: list[dict]) -> list[dict]:
+        """Best-effort ISO-3166 alpha-2 from supplier name when country column is empty."""
+        needs = [
+            r
+            for r in bom
+            if not str(r.get("supplier_country") or "").strip()
+            and str(r.get("supplier_name") or r.get("supplier") or "").strip()
+        ]
+        if not needs:
+            return bom
+
+        print(f"[BOMMapper] Inferring supplier country for {len(needs)} row(s) from supplier name…")
+        items = "\n".join(
+            f"{i + 1}. supplier={json.dumps(r.get('supplier_name') or r.get('supplier', ''))} "
+            f"sku={json.dumps(r.get('sku_code', ''))} "
+            f"desc={json.dumps((r.get('description') or '')[:160])}"
+            for i, r in enumerate(needs)
+        )
+        response, model_used = await chat_with_fallback(
+            self.client,
+            primary_model=self.primary_model,
+            fallback_model=self.fallback_model,
+            request_name="bom_mapper.batch_infer_supplier_country",
+            max_tokens=2048,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Given a numbered list of suppliers and product hints, infer the most likely "
+                        "manufacturing/shipping country as ISO 3166-1 alpha-2 (two letters, e.g. CN, VN, US). "
+                        "Return ONLY a JSON array: "
+                        '[{"index":1,"inferred_country":"CN","confidence":0.0-1.0},...]. '
+                        "No markdown."
+                    ),
+                },
+                {"role": "user", "content": items},
+            ],
+        )
+        self.last_model_used = model_used
+        text = (response.choices[0].message.content or "").strip()
+        if text.startswith("```"):
+            lines = text.split("\n")
+            text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+        iso_to_english = {
+            "CN": "china", "US": "united states", "TW": "taiwan", "VN": "vietnam",
+            "BR": "brazil", "MX": "mexico", "IN": "india", "KR": "south korea",
+            "DE": "germany", "JP": "japan", "CA": "canada", "GB": "united kingdom",
+            "IT": "italy", "FR": "france", "ES": "spain", "NL": "netherlands",
+            "PL": "poland", "TH": "thailand", "MY": "malaysia", "ID": "indonesia",
+            "PH": "philippines", "SG": "singapore", "AU": "australia", "NZ": "new zealand",
+            "TR": "turkey", "CZ": "czechia", "HU": "hungary", "SE": "sweden",
+        }
+        try:
+            results = json.loads(text)
+            if not isinstance(results, list):
+                results = []
+            lookup = {}
+            for item in results:
+                if not isinstance(item, dict):
+                    continue
+                idx = item.get("index")
+                code = (item.get("inferred_country") or item.get("country") or "").strip().upper()
+                if isinstance(idx, int) and len(code) == 2:
+                    lookup[idx] = code
+            for i, row in enumerate(needs):
+                code = lookup.get(i + 1)
+                if not code:
+                    continue
+                name = iso_to_english.get(code, code.lower())
+                row["supplier_country"] = name
+                row["supplier_country_inferred"] = True
+                print(f"[BOMMapper] {row.get('sku_code')}: inferred country {code} → {name}")
+        except Exception as exc:
+            print(f"[BOMMapper] Batch supplier-country inference failed: {exc}")
         return bom
 
     async def lookup_tariff_rate(self, product_description: str) -> HTSRates | None:

@@ -65,8 +65,9 @@ function ProductsPanel({ boms }) {
   );
 }
 
-function EventsPanel({ events }) {
+function EventsPanel({ events, activeMapEvent, setActiveMapEvent }) {
   const displayEvents = events.slice(0, 3);
+  const activeId = activeMapEvent?.id ?? activeMapEvent?.event_id;
 
   return (
     <div className="right-area" style={{display:'flex', flexDirection:'column', gap:16}}>
@@ -75,11 +76,24 @@ function EventsPanel({ events }) {
         <Glass padding={20} style={{textAlign:'center'}}>
           <div className="body-sm">No active signals. Load Demo or poll Federal Register.</div>
         </Glass>
-      ) : displayEvents.map(ev => (
-        <Glass key={ev.id} padding={16}>
-          <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
+      ) : displayEvents.map(ev => {
+        const evId = ev.id ?? ev.event_id;
+        const isActive = activeId != null && evId === activeId;
+        return (
+        <Glass
+          key={evId}
+          padding={16}
+          style={{
+            borderLeft: isActive ? '3px solid var(--accent)' : undefined,
+            boxShadow: isActive ? '0 0 0 1px rgba(76,111,174,0.2)' : undefined,
+          }}
+        >
+          <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8, flexWrap:'wrap'}}>
             <Chip bg='rgba(209,67,67,.1)' fg='#D14343'>{ev.threat_level || 'EVENT'}</Chip>
             <div className="eyebrow">{ev.source||'manual'}</div>
+            {isActive && (
+              <Chip bg="rgba(76,111,174,.12)" fg="#4C6FAE">Map focus</Chip>
+            )}
           </div>
           <div style={{fontWeight:600,fontSize:14,marginBottom:6,lineHeight:'20px'}}>{ev.title}</div>
           <div style={{fontSize:12,color:'var(--fg-2)',marginBottom:12,display:'-webkit-box',
@@ -91,20 +105,30 @@ function EventsPanel({ events }) {
             <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:'#D14343'}}>
               {ev.rate_change_hint || 'Rate unknown'}
             </div>
-            <Btn small variant="ghost">Map Impact</Btn>
+            <Btn
+              small
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveMapEvent(isActive ? null : ev);
+              }}
+            >
+              Map Impact
+            </Btn>
           </div>
         </Glass>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
-export function DashboardPage({ boms, events }) {
+export function DashboardPage({ boms, events, activeMapEvent, setActiveMapEvent }) {
   return (
     <>
       <ProductsPanel boms={boms} />
       <div className="center-area">
-        <D3WorldMap events={events} boms={boms} />
+        <D3WorldMap events={events} boms={boms} activeMapEvent={activeMapEvent} />
         <div style={{position:'absolute', top:30, left:40, pointerEvents:'none'}}>
           <div className="h4" style={{letterSpacing:'-0.02em'}}>Global Supply Matrix</div>
           <div className="body-sm" style={{marginTop:4, display:'flex', alignItems:'center', gap:8}}>
@@ -112,7 +136,11 @@ export function DashboardPage({ boms, events }) {
           </div>
         </div>
       </div>
-      <EventsPanel events={events} />
+      <EventsPanel
+        events={events}
+        activeMapEvent={activeMapEvent}
+        setActiveMapEvent={setActiveMapEvent}
+      />
     </>
   );
 }

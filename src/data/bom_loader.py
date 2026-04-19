@@ -178,7 +178,19 @@ def _normalize_uploaded_row(r: dict, i: int, errors: list[str]) -> dict:
     out["sku_code"] = pick("sku_code", "sku", "item_number", "item_no", "item #", "item", "part_number", "part_no", "no", "id") or f"SKU-{i:04d}"
     out["description"] = pick("description", "desc", "item_description", "part_description", "name", "item_name", "component")
     out["supplier_name"] = pick("supplier_name", "supplier", "vendor", "manufacturer", "supplier name")
-    out["supplier_country"] = pick("supplier_country", "country", "origin", "country_of_origin", "source_country", "supplier country")
+    out["supplier_country"] = pick(
+        "supplier_country",
+        "country",
+        "origin",
+        "country_of_origin",
+        "country of origin",
+        "made in",
+        "manufacturing country",
+        "mfg country",
+        "mfg_country",
+        "source_country",
+        "supplier country",
+    )
 
     try:
         out["tier"] = int(pick("tier") or 1)

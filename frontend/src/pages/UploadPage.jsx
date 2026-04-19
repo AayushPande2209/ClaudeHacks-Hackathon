@@ -12,7 +12,7 @@ function partsToCsv(parts) {
   return [header, ...rows].join('\n');
 }
 
-export function UploadPage({ setPage }) {
+export function UploadPage({ setPage, loadEvents, loadBoms }) {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(null);
   const [error, setError] = useState(null);
@@ -57,6 +57,10 @@ export function UploadPage({ setPage }) {
       const r = await fetch("/api/v1/materials/upload", { method: 'POST', body: fd });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
+      const tasks = [];
+      if (typeof loadEvents === "function") tasks.push(loadEvents());
+      if (typeof loadBoms === "function") tasks.push(loadBoms());
+      if (tasks.length) await Promise.all(tasks);
       setDone(data);
     } catch(e) {
       setError(e.message);
@@ -105,7 +109,10 @@ export function UploadPage({ setPage }) {
                     <tr key={i} style={{borderBottom:'1px solid var(--border-1)'}}>
                       <td style={{padding:'4px 8px'}}>{r.sku_code}</td>
                       <td style={{padding:'4px 8px', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.description}</td>
-                      <td style={{padding:'4px 8px'}}>{r.supplier_country}</td>
+                      <td style={{padding:'4px 8px'}}>
+                        {r.supplier_country}
+                        {r.supplier_country_inferred ? " (estimated)" : ""}
+                      </td>
                       <td style={{padding:'4px 8px'}}>{r.unit_cost_usd != null ? `$${Number(r.unit_cost_usd).toFixed(2)}` : '—'}</td>
                       <td style={{padding:'4px 8px', color: r.hs_code ? 'var(--fg-1)' : 'var(--fg-3)'}}>{r.hs_code || 'pending'}</td>
                     </tr>
@@ -137,6 +144,12 @@ export function UploadPage({ setPage }) {
       <div className="h4" style={{marginBottom:4}}>Upload Materials</div>
       <div className="body-sm" style={{marginBottom:24}}>
         Build your parts list manually, upload a CSV, or attach supporting PDFs.
+      </div>
+      <div className="body-sm" style={{marginBottom:20, padding: "12px 14px", borderRadius: 8, background: "var(--grey-025)", border: "1px solid var(--border-1)", color: "var(--fg-2)", lineHeight: 1.5 }}>
+        <strong style={{ color: "var(--fg-1)" }}>CSV columns (recommended):</strong>{" "}
+        SKU Code · Description · Supplier ·{" "}
+        <strong>Supplier Country</strong> (required for map arcs and tariff exposure — use full country name or ISO-2, e.g. China or CN) ·
+        Quantity · Unit Cost (USD) · HS Code (optional). Aliases such as &quot;Country of origin&quot;, &quot;Made in&quot;, or &quot;Manufacturing country&quot; are accepted.
       </div>
 
       {/* ── Visual BOM builder ─────────────────────────── */}
