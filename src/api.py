@@ -225,7 +225,7 @@ async def upload_bom(file: UploadFile = File(...)):
 
 
 def _normalize_row(r: dict, i: int, errors: list) -> dict:
-    return out
+    return _normalize_uploaded_row(r, i, errors)
 
 
 @app.get("/api/v1/boms")
@@ -625,6 +625,12 @@ def list_recommendations(user_id: str | None = None):
     return store.list_recommendations(user_id=user_id or _DEFAULT_USER_ID)
 
 
+@app.get("/api/v1/recommendations/{rec_id}/progress")
+def get_progress(rec_id: str):
+    """Return the current pipeline progress array for a recommendation."""
+    return {"progress": store.get_progress(rec_id)}
+
+
 @app.get("/api/v1/recommendations/{rec_id}/stream")
 async def stream_progress(rec_id: str):
     """Server-Sent Events stream of pipeline stage updates."""
@@ -638,7 +644,7 @@ async def stream_progress(rec_id: str):
                 yield f"data: {json.dumps(ev)}\n\n"
                 offset += 1
 
-            if rec and rec.get("status") in ("awaiting_approval", "approved", "rejected", "error"):
+            if rec and rec.get("status") in ("complete", "awaiting_approval", "approved", "rejected", "error"):
                 # pipeline finished — send final state and close
                 yield f"data: {json.dumps({'stage': 'done', 'status': rec['status'], 'rec': rec})}\n\n"
                 break

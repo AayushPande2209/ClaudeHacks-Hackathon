@@ -260,23 +260,38 @@ export function D3WorldMap({ events, boms, activeMapEvent }) {
           (b.rows || []).forEach((r) => {
             const cname = normalizeCountryName(r.supplier_country);
             if (!cname || drawn.has(cname)) return;
+            // In Mode B, skip BOM suppliers not mentioned in the active event
+            if (modeB && !eventRiskNames.has(cname)) return;
             drawn.add(cname);
             const feature = countries.find((c) => (c.properties?.name || "").toLowerCase() === cname);
             if (!feature) return;
             const coords = path.centroid(feature);
             const color = modeB
-              ? eventRiskNames.has(cname) ? red : blue
+              ? red
               : anyEventRisk.has(cname) ? red : blue;
             drawArc(coords, usCoords, color, cname);
             drawPulse(coords, color);
           });
         });
 
-        if (drawn.size === 0 && (events || []).length > 0) {
-          const cnCoords = projection([104.1, 35.8]);
-          const twCoords = projection([120.9, 23.6]);
-          if (cnCoords) { drawArc(cnCoords, usCoords, red, "china"); drawPulse(cnCoords, red); }
-          if (twCoords) { drawArc(twCoords, usCoords, blue, "taiwan"); drawPulse(twCoords, blue); }
+        if (drawn.size === 0) {
+          if (modeB && activeMapEvent) {
+            // Draw arcs for every country mentioned in the active event's jurisdictions
+            countries.forEach(feature => {
+              const cname = (feature.properties?.name || "").toLowerCase();
+              if (!eventRiskNames.has(cname)) return;
+              const coords = path.centroid(feature);
+              if (!coords || isNaN(coords[0])) return;
+              drawArc(coords, usCoords, red, cname);
+              drawPulse(coords, red);
+            });
+          } else if ((events || []).length > 0) {
+            // Demo arcs when no BOM uploaded and no active event filter
+            const cnCoords = projection([104.1, 35.8]);
+            const twCoords = projection([120.9, 23.6]);
+            if (cnCoords) { drawArc(cnCoords, usCoords, red, "china"); drawPulse(cnCoords, red); }
+            if (twCoords) { drawArc(twCoords, usCoords, blue, "taiwan"); drawPulse(twCoords, blue); }
+          }
         }
       });
   }, [events, boms, activeMapEvent]);

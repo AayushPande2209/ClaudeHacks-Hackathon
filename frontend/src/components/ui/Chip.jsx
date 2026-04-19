@@ -13,6 +13,7 @@ export function Chip({ children, bg, fg }) {
 export function StatusChip({ status }) {
   const map = {
     running:    {bg:'rgba(79,143,90,.1)', fg:'#35683F',   label:'RUNNING'},
+    complete:   {bg:'rgba(79,143,90,.14)',fg:'#35683F',   label:'COMPLETE'},
     awaiting_approval:{bg:'rgba(217,119,87,.14)',fg:'#BC5A3B',label:'AWAITING APPROVAL'},
     approved:   {bg:'rgba(79,143,90,.14)',fg:'#35683F',   label:'APPROVED'},
     edited:     {bg:'rgba(196,154,43,.12)',fg:'#8F6F1A',  label:'EDITED'},

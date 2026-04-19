@@ -79,6 +79,10 @@ TariffShield is composed of three top-level agents. Agents communicate exclusive
 
 Every `SignalMonitorAgent.run()` return value MUST be validated with `EnrichedEvent(**result)` before being passed downstream.
 
+**Two operating modes (controlled by `mode` parameter on `run()`):**
+- `discover` — Full ReAct loop with up to 3 Tavily search rounds + Federal Register polling. Used exclusively by the cron-triggered `POST /api/v1/internal/poll-signals` endpoint. Makes 3–4 LLM calls.
+- `enrich` — Single LLM call. Takes an existing event's `title`, `url`, and `raw_excerpt` already in the DB and extracts `hs_codes`, `jurisdictions`, `rate_change_bps`, `threat_level`, `effective_date`. No Tavily search. Used by `POST /api/v1/events/{event_id}/analyze`. Makes exactly 1 LLM call.
+
 **Responsibilities:**
 - Deduplicate by `document_number` (Federal Register canonical ID) + `content_hash`.
 - Extract HS codes, jurisdictions, effective date, and rate delta from each document abstract using Llama 3.3 70B via Groq.

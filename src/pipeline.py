@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import asyncio
-import tempfile
 import time
 import traceback
 from datetime import datetime, timezone
@@ -99,16 +98,20 @@ async def run_pipeline(rec_id: str, event_id: str, bom_id: str, user_id: str = "
         if not raw_event:
             raise ValueError(f"Event {event_id} not found")
 
-        bom_rows = store.get_bom_rows(bom_id)
-        if not bom_rows:
-            raise ValueError(f"BOM {bom_id} has no rows")
-
-        # ── Stage 1: Signal Monitor ──────────────────────────────────────
+        # ── Stage 1: Signal Monitor + BOM row fetch (parallel) ───────────
+        # Both are independent — run concurrently to save 1–3s
         _progress(rec_id, "signal_monitor", "running", "Enriching tariff signal…")
         _t0 = time.monotonic()
         _stage_started = datetime.now(timezone.utc).isoformat()
         signal_agent = SignalMonitorAgent()
-        enriched_event = await signal_agent.run(raw_event, user_id=user_id)
+
+        enriched_event, bom_rows = await asyncio.gather(
+            signal_agent.run(raw_event, user_id=user_id, mode="enrich"),
+            asyncio.to_thread(store.get_bom_rows, bom_id),
+        )
+
+        if not bom_rows:
+            raise ValueError(f"BOM {bom_id} has no rows")
         try:
             enriched_event = EnrichedEvent(**enriched_event).model_dump()
         except ValidationError as exc:

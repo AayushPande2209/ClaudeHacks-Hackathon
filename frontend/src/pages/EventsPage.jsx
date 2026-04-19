@@ -4,14 +4,19 @@ import { Btn } from "../components/ui/Btn";
 import { Chip, StatusChip } from "../components/ui/Chip";
 import { api } from "../lib/api";
 
-export function EventsPage({ setPage, setTargetRec, setActiveMapEvent, activeMapEvent }) {
-  const [events, setEvents] = useState([]);
+export function EventsPage({ events: eventsProp, loadEvents, setPage, setTargetRec, setActiveMapEvent, activeMapEvent }) {
+  const [localEvents, setLocalEvents] = useState([]);
   const [boms, setBoms] = useState([]);
 
   useEffect(()=>{
-    api('GET','/events').then(d=>setEvents(d.events||[])).catch(()=>{});
+    // If App.jsx hasn't hydrated yet, fetch locally as fallback
+    if (!eventsProp || eventsProp.length === 0) {
+      api('GET','/events').then(d=>setLocalEvents(d.events||[])).catch(()=>{});
+    }
     api('GET','/boms').then(setBoms).catch(()=>{});
-  }, []);
+  }, [eventsProp]);
+
+  const events = (eventsProp && eventsProp.length > 0) ? eventsProp : localEvents;
 
   async function analyze(ev) {
     if (!boms.length) { alert('Upload a BOM first (Company tab).'); return; }

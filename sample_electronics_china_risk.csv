@@ -1,0 +1,6 @@
+SKU Code,Description,Supplier,Supplier Country,Quantity,Unit Cost (USD),HS Code
+CE-IPH-001,Advanced Processors (M-Series),TSMC,Taiwan,5000,45.00,8542.31
+CE-BT-002,Li-ion Battery Pack,BYD,China,5000,12.50,8507.60
+CE-LCD-003,OLED Display Module,BOE Technology,China,5000,85.00,8529.90
+CE-CH-004,Aluminum Housing,Foxconn,China,5000,18.00,7616.99
+CE-CAM-005,Optics Module,Sony,Japan,5000,32.00,9002.11

@@ -1,0 +1,6 @@
+SKU Code,Description,Supplier,Supplier Country,Quantity,Unit Cost (USD),HS Code
+MD-SCAN-901,High-Res Imaging Sensor,Roche,Switzerland,50,4200.00,9022.90
+MD-LAS-902,Medical-Grade Fiber Laser,Hamamatsu,Japan,50,8500.00,9013.20
+MD-VAL-903,Micro-Fluidic Valve,BioRad,USA,500,120.00,8481.81
+MD-PCB-904,Medical Logic Board,Samsung,South Korea,50,1400.00,8534.00
+MD-FLT-905,Precision HEPA Filter,Pall Corp,USA,1000,35.00,8421.39

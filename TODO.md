@@ -50,6 +50,29 @@
 
 ---
 
+## OPEN — Performance Optimization
+
+### Phase 1 — Signal Monitor enrich mode (saves 10–30 s, highest impact)
+
+- [ ] In `src/agents/signal_monitor.py`: add a `mode: str = "discover"` parameter to `SignalMonitorAgent.run()`; when `mode == "enrich"` skip the ReAct loop entirely and make a single Groq call with the existing event's `title` and `raw_excerpt` as user content, using a focused system prompt that extracts `hs_codes`, `jurisdictions`, `rate_change_bps`, `old_rate_pct`, `new_rate_pct`, `rate_delta_pct`, `affected_countries`, `effective_date`, `threat_level`, `confidence_score`, and `key_facts`; return the result wrapped through `EnrichedEvent` validation exactly as the discover path does — Owner: Builder — Priority: high
+- [ ] In `src/pipeline.py`: update the `SignalMonitorAgent().run(...)` call to pass `mode="enrich"` — the analyze endpoint already has the event; there is nothing to discover — Owner: Builder — Priority: high
+
+### Phase 2 — Groq rate-limiter fix (eliminates worst-case 60 s freeze)
+
+- [ ] In `src/groq_client.py` (or wherever the rate-limit sleep lives): replace the flat `sleep(60)` on rate-limit with exponential backoff — on a 429 response first read the `Retry-After` header value; if absent, back off 5 s → 10 s → 20 s → 40 s → 60 s max; log each retry attempt at WARNING level so it is visible in backend logs — Owner: Builder — Priority: high
+- [ ] In `src/groq_client.py`: add a per-request timeout of 30 s to every Groq API call so a hung request does not stall the pipeline indefinitely — Owner: Builder — Priority: high
+
+### Phase 3 — Parallel BOM row fetch (saves 1–3 s, low effort)
+
+- [ ] In `src/pipeline.py` inside `run_pipeline()`: wrap the Signal Monitor `enrich` call and the `store.get_bom_rows(bom_id)` fetch in a single `asyncio.gather()` — these are completely independent (one is a Groq LLM call, the other is a Supabase DB read); pass the resolved bom_rows result directly into the BOM Mapper call that follows — Owner: Builder — Priority: med
+
+### Phase 4 — Frontend live progress display (perceived speed, no pipeline change)
+
+- [ ] In `frontend/src/pages/RecommendationsPage.jsx`: while `rec.status === 'running'`, poll `GET /api/v1/recommendations/{rec_id}/progress` (or the existing SSE endpoint if wired) every 2 s and display the current stage name returned by the backend `_progress()` dict — show a labelled progress bar with stages: "Enriching event" → "Mapping BOM" → "Modeling scenarios" → "Ranking" — hide the bar and show results when status transitions to `complete` — Owner: Builder — Priority: med
+- [ ] Verify the backend exposes a progress endpoint that reads from the in-memory `_progress` dict keyed by `rec_id`; if the endpoint does not exist, add `GET /api/v1/recommendations/{rec_id}/progress` to `src/api.py` returning `{ "stage": str, "status": str }` — Owner: Builder — Priority: med
+
+---
+
 ## OPEN — Should Fix
 
 - [x] **S1** — In `src/api.py` pass the authenticated user's ID to `store.list_boms(user_id=current_user_id)` and `store.list_recommendations(user_id=current_user_id)`; update `SupabaseStore` to filter by `user_id` in both methods — Owner: Builder — Priority: med

@@ -40,10 +40,11 @@ export default function App() {
       loadBoms();
     });
 
-    const t = setInterval(()=>{
+    const healthTimer = setInterval(()=>{
       api('GET','/health').then(()=>setApiOk(true)).catch(()=>setApiOk(false));
     }, 5000);
-    return ()=>clearInterval(t);
+    const eventsTimer = setInterval(loadEvents, 30000);
+    return ()=>{ clearInterval(healthTimer); clearInterval(eventsTimer); };
   }, [loadEvents, loadBoms]);
 
   useEffect(() => {
@@ -73,7 +74,7 @@ export default function App() {
             <UploadPage setPage={navigate} loadEvents={loadEvents} loadBoms={loadBoms} />
           )}
           {page === 'report' && <AuditPage />}
-          {page === 'events' && <EventsPage setPage={navigate} setTargetRec={setTargetRec} setActiveMapEvent={setActiveMapEvent} activeMapEvent={activeMapEvent} />}
+          {page === 'events' && <EventsPage events={events} loadEvents={loadEvents} setPage={navigate} setTargetRec={setTargetRec} setActiveMapEvent={setActiveMapEvent} activeMapEvent={activeMapEvent} />}
           {page === 'scenarios' && <RecommendationsPage targetRec={targetRec} setTargetRec={setTargetRec} />}
         </main>
       )}

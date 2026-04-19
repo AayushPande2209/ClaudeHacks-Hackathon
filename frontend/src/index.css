@@ -36,7 +36,7 @@
 *,*::before,*::after{box-sizing:border-box;}
 html,body{margin:0;font-family:var(--font-sans);font-size:14px;line-height:20px;
   color:var(--fg-1);background:var(--canvas-gradient);background-attachment:fixed;
-  min-height:100vh;-webkit-font-smoothing:antialiased; overflow:hidden;}
+  min-height:100vh;-webkit-font-smoothing:antialiased;}
 #root{min-height:100vh;}
 table{border-collapse:collapse;width:100%;}
 button{font-family:var(--font-sans);}

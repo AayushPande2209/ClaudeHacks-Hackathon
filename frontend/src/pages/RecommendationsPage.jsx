@@ -34,6 +34,69 @@ function SupplierRow({ row }) {
   );
 }
 
+const STAGE_LABELS = {
+  signal_monitor:   "Enriching tariff signal",
+  bom_mapper:       "Mapping BOM to HS codes",
+  scenario_modeler: "Modeling 3 scenarios",
+  synthesizer:      "Ranking scenarios",
+  pipeline:         "Pipeline",
+};
+
+function PipelineProgress({ recId }) {
+  const [steps, setSteps] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    const poll = async () => {
+      try {
+        const d = await api("GET", `/recommendations/${recId}/progress`);
+        if (active) setSteps(d.progress || []);
+      } catch { /* ignore */ }
+    };
+    poll();
+    const t = setInterval(poll, 2000);
+    return () => { active = false; clearInterval(t); };
+  }, [recId]);
+
+  // Deduplicate: keep last entry per stage
+  const byStage = {};
+  steps.forEach(s => { byStage[s.stage] = s; });
+  const ordered = ["signal_monitor", "bom_mapper", "scenario_modeler", "synthesizer"]
+    .map(k => byStage[k])
+    .filter(Boolean);
+
+  if (ordered.length === 0) return (
+    <div className="body-sm" style={{ padding: 4, color: "var(--fg-3)" }}>
+      Pipeline starting…
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {ordered.map((s) => {
+        const done = s.status === "done";
+        const err  = s.status === "error";
+        const running = s.status === "running";
+        const color = err ? "#D14343" : done ? "#35683F" : "var(--accent)";
+        const icon = err ? "✕" : done ? "✓" : "…";
+        return (
+          <div key={s.stage} style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 12 }}>
+            <span style={{ width: 14, textAlign: "center", color, fontWeight: 700, flexShrink: 0 }}>{icon}</span>
+            <span style={{ color: running ? "var(--fg-1)" : done ? "var(--fg-2)" : "var(--fg-3)", fontWeight: running ? 600 : 400 }}>
+              {STAGE_LABELS[s.stage] || s.stage}
+            </span>
+            {s.detail && (
+              <span style={{ color: "var(--fg-3)", fontSize: 11, fontFamily: "var(--font-mono)" }}>
+                {s.detail}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function RecDetail({ recId, onBack }) {
   const [rec, setRec] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -126,9 +189,7 @@ function RecDetail({ recId, onBack }) {
   if (loading && !rec) {
     return (
       <Glass>
-        <div className="body-sm" style={{ padding: 8 }}>
-          Pipeline running… checking every 5s.
-        </div>
+        <PipelineProgress recId={recId} />
       </Glass>
     );
   }
@@ -151,9 +212,7 @@ function RecDetail({ recId, onBack }) {
 
       {rec.status === "running" && (
         <Glass style={{ marginBottom: 16 }}>
-          <div className="body-sm" style={{ padding: 4 }}>
-            Pipeline still running…
-          </div>
+          <PipelineProgress recId={recId} />
         </Glass>
       )}
 

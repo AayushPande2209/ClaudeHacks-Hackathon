@@ -165,6 +165,40 @@ Return [] if no tariff signals found.
 # Prompt for Brave Search ReAct enrichment
 # ---------------------------------------------------------------------------
 
+ENRICH_SYSTEM_PROMPT = """<instructions>
+You are a US trade-law analyst. Extract structured tariff metadata from an existing tariff event.
+Make exactly one pass over the provided data. Do not search for additional information.
+</instructions>
+
+<task>
+From the event title, description, and raw excerpt, extract:
+1. HS codes affected (8-digit where inferable, else chapter-level). Return [] if none found.
+2. Affected countries/jurisdictions (ISO-2 codes, e.g. ["CN","TW"]).
+3. Rate change: old_rate_pct and new_rate_pct (use 0.0 if unknown).
+4. Threat level: CRITICAL, HIGH, MEDIUM, or LOW.
+5. Confidence score 0.0–1.0 (0.7–0.85 range typical for single-source).
+</task>
+
+<output_format>
+Return ONLY valid JSON:
+{
+  "event_id": "...",
+  "description": "one-sentence summary of the tariff action",
+  "hs_codes": [],
+  "old_rate_pct": 0.0,
+  "new_rate_pct": 25.0,
+  "rate_delta_pct": 25.0,
+  "affected_countries": [],
+  "effective_date": null,
+  "threat_level": "HIGH",
+  "confidence_score": 0.75,
+  "search_rounds_used": 0,
+  "key_facts": [],
+  "sources": []
+}
+No markdown, no explanation, no code fences.
+</output_format>"""
+
 SYSTEM_PROMPT = """<instructions>
 You are a trade intelligence analyst specializing in tariff signal monitoring.
 Your job is to enrich raw tariff event signals with verified intelligence from web searches.
@@ -247,7 +281,20 @@ class SignalMonitorAgent:
     # MODE 1: Brave Search ReAct enrichment
     # ------------------------------------------------------------------
 
-    async def run(self, raw_event: dict, user_id: str = "") -> dict:
+    async def run(self, raw_event: dict, user_id: str = "", mode: str = "enrich") -> dict:
+        """Enrich a tariff event.
+
+        mode='enrich' (default): single LLM call, no web search — fast path for pipeline.
+        mode='react':            full ReAct loop with Tavily searches — higher confidence.
+        Internal events (bom-upload / manual / demo) always use the zero-LLM fast path.
+        """
+        # Internal events already carry full metadata — no LLM needed
+        if raw_event.get("source") in ("bom-upload", "manual", "demo"):
+            return self._fast_enrich(raw_event)
+
+        if mode == "enrich":
+            return await self._enrich_mode(raw_event, user_id)
+
         print(f"\n[SignalMonitor] Starting ReAct loop for event: {raw_event.get('event_id', 'unknown')}")
 
         # Internal events (bom-upload, manual, demo) already have all data — skip web search
@@ -576,6 +623,43 @@ class SignalMonitorAgent:
                 except Exception:
                     pass
         return 0.0
+
+    async def _enrich_mode(self, raw_event: dict, user_id: str = "") -> dict:
+        """Single-call enrichment — no web search, no ReAct loop."""
+        print(f"[SignalMonitor] Enrich mode for event: {raw_event.get('event_id', 'unknown')}")
+        biz = compile_business_context(user_id) if user_id else ""
+        system = f"{biz}\n\n{ENRICH_SYSTEM_PROMPT}".strip() if biz else ENRICH_SYSTEM_PROMPT
+        user_content = (
+            f"Event ID: {raw_event.get('event_id', 'unknown')}\n"
+            f"Title: {raw_event.get('title', '')}\n"
+            f"Description: {raw_event.get('description') or raw_event.get('raw_excerpt', '')}\n"
+            f"HS codes hint: {raw_event.get('hs_codes', raw_event.get('hs_codes_hint', []))}\n"
+            f"Jurisdictions hint: {raw_event.get('jurisdictions', raw_event.get('affected_countries_hint', []))}\n"
+            f"Rate hint: {raw_event.get('rate_change_hint', '')}\n"
+            f"Rate bps: {raw_event.get('rate_change_bps', '')}\n"
+        )
+        try:
+            response, model_used = await chat_with_fallback(
+                self.client,
+                primary_model=self.primary_model,
+                fallback_model=self.fallback_model,
+                request_name="signal_monitor.enrich",
+                max_tokens=1024,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user_content},
+                ],
+            )
+            self.last_model_used = model_used
+            text = response.choices[0].message.content or ""
+            result = self._parse_json(text)
+            if result:
+                result["search_rounds_used"] = 0
+                print(f"[SignalMonitor] Enrich done. confidence={result.get('confidence_score', '?')}")
+                return EnrichedEvent(**{k: v for k, v in result.items() if k in EnrichedEvent.model_fields}).model_dump()
+        except Exception as exc:
+            print(f"[SignalMonitor] Enrich LLM call failed: {exc} — using fallback")
+        return self._fast_enrich(raw_event)
 
     def _fast_enrich(self, raw_event: dict) -> dict:
         """No-LLM enrichment for internal events that already carry full metadata."""

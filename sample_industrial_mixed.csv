@@ -1,0 +1,6 @@
+SKU Code,Description,Supplier,Supplier Country,Quantity,Unit Cost (USD),HS Code
+IM-MOT-101,Brushless DC Motor (5kW),Siemens,Germany,200,450.00,8501.31
+IM-GR-102,Precision Gearbox,ZF Friedrichshafen,Germany,200,890.00,8483.40
+IM-CH-103,Steel Chassis Frame,MetalManiacs,Mexico,200,1200.00,7308.90
+IM-SEN-104,Industrial Proximity Sensors,Omron,China,200,45.00,8536.50
+IM-PLC-105,Logic Controller Unit,Schneider,France,200,650.00,8537.10
