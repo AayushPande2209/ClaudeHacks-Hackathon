@@ -41,7 +41,20 @@ export function UploadPage({ setPage, loadEvents, loadBoms }) {
   }
 
   async function submit() {
-    setSaving(true); setError(null);
+    setError(null);
+    // Validate manual parts: every part must have supplier_country
+    if (parts.length > 0 && !bomFile) {
+      const missing = parts.filter(p => !p.supplier_country?.trim());
+      if (missing.length === parts.length) {
+        setError("Supplier Country is required for every part. It is needed for tariff exposure analysis and the supply map. Please fill in the Country field for all parts.");
+        return;
+      }
+      if (missing.length > 0) {
+        setError(`${missing.length} part(s) are missing a Supplier Country: ${missing.map(p => p.sku_code || p.description || '(unnamed)').join(', ')}. Please fill in the Country field before uploading.`);
+        return;
+      }
+    }
+    setSaving(true);
     try {
       const fd = new FormData();
 

@@ -360,6 +360,21 @@ async def upload_materials(
         validation_errors = parsed["errors"]
         if not rows:
             raise HTTPException(400, "No rows found in spreadsheet")
+        missing_country = [r.get("sku_code") or f"row {i+1}" for i, r in enumerate(rows) if not r.get("supplier_country")]
+        if len(missing_country) == len(rows):
+            raise HTTPException(
+                422,
+                "Supplier country is missing from every row in your spreadsheet. "
+                "This field is required for tariff exposure analysis and map visualisation. "
+                "Please add a 'Supplier Country' column (full country name or ISO-2 code, e.g. 'China' or 'CN') and re-upload."
+            )
+        if missing_country:
+            validation_errors.append(
+                f"Supplier country missing for {len(missing_country)} row(s): "
+                + ", ".join(missing_country[:10])
+                + (f" … and {len(missing_country)-10} more" if len(missing_country) > 10 else "")
+                + ". These rows will have no map arc or tariff exposure."
+            )
         # Enrich missing HS codes before storing
         try:
             mapper = BOMMapperAgent()
