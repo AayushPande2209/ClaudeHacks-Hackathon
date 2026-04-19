@@ -780,9 +780,9 @@ def _score_article(title: str, description: str) -> dict:
         bonus = sum(pts * (0.25 ** i) for i, (_, pts) in enumerate(hits[1:5]))
         score = min(97, int(primary + bonus))
 
-    if score >= 65:   level, color = "HIGH",   "#D14343"
-    elif score >= 35: level, color = "MEDIUM",  "#D97706"
-    elif score >= 12: level, color = "LOW",     "#4C6FAE"
+    if score >= 42:   level, color = "HIGH",   "#D14343"
+    elif score >= 20: level, color = "MEDIUM",  "#D97706"
+    elif score >= 9:  level, color = "LOW",     "#4C6FAE"
     else:             level, color = "INFO",    "#6B7280"
 
     # Build why string from top matched keywords

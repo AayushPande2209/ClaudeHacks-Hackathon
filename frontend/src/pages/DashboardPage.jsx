@@ -406,13 +406,15 @@ function GoodIdeaPanel({ boms }) {
     return () => clearInterval(t);
   }, [load]);
 
+  const highArticles = articles.filter(a => a.risk_level === 'HIGH');
+  // High Risk tab: show HIGH articles, fall back to top 6 by score if none
   const filtered = tab === 'high'
-    ? articles.filter(a => a.risk_level === 'HIGH')
+    ? (highArticles.length > 0 ? highArticles : [...articles].sort((a, b) => b.risk_score - a.risk_score).slice(0, 6))
     : tab === 'formal'
     ? articles.filter(a => a.risk_level === 'HIGH' || a.risk_level === 'MEDIUM')
     : articles;
 
-  const highCount = articles.filter(a => a.risk_level === 'HIGH').length;
+  const highCount = highArticles.length;
 
   return (
     <div className="right-area" style={{ display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' }}>
