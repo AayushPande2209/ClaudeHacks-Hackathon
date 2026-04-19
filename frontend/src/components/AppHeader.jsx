@@ -15,8 +15,8 @@ export function AppHeader({ page, setPage, apiOk }) {
       background:'rgba(255,255,255,.45)', backdropFilter:'blur(18px)', minHeight:70}}>
       
       <div style={{display:'flex',alignItems:'center',gap:12}}>
-        <img src="/assets/espada-mark.svg" width="32" height="32" alt=""/>
-        <span style={{fontWeight:600,fontSize:20,letterSpacing:'-.02em'}}>espada</span>
+        <img src="/assets/espada-mark.svg" width="36" height="36" alt="espada" style={{borderRadius:'50%'}}/>
+        <span style={{fontWeight:700,fontSize:20,letterSpacing:'-.02em',fontFamily:'var(--font-display)'}}>espada</span>
       </div>
 
       <div style={{display:'flex',gap:8}}>
