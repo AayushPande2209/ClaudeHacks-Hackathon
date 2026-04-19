@@ -52,17 +52,25 @@ async def _synthesize(scenarios: list[dict]) -> tuple[list[dict], str]:
             s["recommendation_rationale"] = "Synthesis skipped — all scenarios failed."
         return scenarios, "none"
 
-    response, model_used = await chat_with_fallback(
-        client,
-        primary_model=MODEL_PLANNER,
-        fallback_model=MODEL_FALLBACK,
-        request_name="pipeline.synthesize",
-        max_tokens=4096,
-        messages=[
-            {"role": "system", "content": SYNTHESIZE_SYSTEM},
-            {"role": "user", "content": json.dumps(valid_scenarios, indent=2)}
-        ],
-    )
+    try:
+        response, model_used = await chat_with_fallback(
+            client,
+            primary_model=MODEL_PLANNER,
+            fallback_model=MODEL_FALLBACK,
+            request_name="pipeline.synthesize",
+            max_tokens=4096,
+            messages=[
+                {"role": "system", "content": SYNTHESIZE_SYSTEM},
+                {"role": "user", "content": json.dumps(valid_scenarios, indent=2)}
+            ],
+        )
+    except Exception as exc:
+        print(f"[Groq] pipeline.synthesize: both models failed ({exc}), using cost-based ranking")
+        sorted_s = sorted(valid_scenarios, key=lambda x: x.get("annual_cost_delta_usd", float("inf")))
+        for i, s in enumerate(sorted_s):
+            s["rank"] = i + 1
+            s["recommendation_rationale"] = "Auto-ranked by cost impact (LLM synthesis unavailable)."
+        return sorted_s, "none"
     text = response.choices[0].message.content or "[]"
     text = text.strip()
     if text.startswith("```"):
@@ -201,7 +209,6 @@ async def run_pipeline(rec_id: str, event_id: str, bom_id: str, user_id: str = "
         store.update_recommendation(rec_id, {
             "status": "error",
             "error": str(exc),
-            "traceback": tb,
         })
         store.log_agent_run({
             "rec_id": rec_id, "agent_name": "pipeline", "model": MODEL_BUILDER,

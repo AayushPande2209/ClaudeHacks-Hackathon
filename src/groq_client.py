@@ -127,13 +127,13 @@ async def chat_with_fallback(
                 raise
             last_exc = exc
             retry_after = _get_retry_after(exc)
+            if retry_after and retry_after > 60:
+                # Retry-After is too long to wait — skip straight to fallback
+                print(f"[Groq] {request_name}: 429 — Retry-After={retry_after:.0f}s, skipping to fallback")
+                break
             if retry_after and attempt < len(_BACKOFF_SEQUENCE):
                 print(f"[Groq] {request_name}: 429 — Retry-After={retry_after:.0f}s")
                 await asyncio.sleep(retry_after)
-                # Sleep already done; skip the loop-top sleep by bumping attempt manually
-                # We do this by continuing — the loop will apply _BACKOFF_SEQUENCE[attempt]
-                # on next iteration, but we've already slept. Accept the double-sleep at
-                # most once; it's safer than complex index manipulation.
             # else: outer loop applies backoff on next iteration
 
     # ── Primary exhausted — try fallback once ───────────────────────────────

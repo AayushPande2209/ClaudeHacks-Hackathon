@@ -142,6 +142,15 @@ class BOMMapperAgent:
             return_exceptions=True,
         )
 
+        affected = []
+        for cr in chunk_results:
+            if isinstance(cr, Exception):
+                continue
+            if isinstance(cr, dict):
+                affected.extend(cr.get("affected_skus", []))
+            elif isinstance(cr, list):
+                affected.extend(cr)
+
         # --- Emergency Fallback: If AI found nothing, do a manual keyword sweep ---
         if not affected:
             print("[BOMMapper] AI match returned zero; falling back to keyword sweep.")
