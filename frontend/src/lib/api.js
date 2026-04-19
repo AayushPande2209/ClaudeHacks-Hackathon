@@ -1,4 +1,5 @@
-const API = "/api/v1";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const API = `${BASE_URL}/api/v1`;
 
 export async function api(method, path, body) {
   const opts = { method, headers: { "Content-Type": "application/json" } };
