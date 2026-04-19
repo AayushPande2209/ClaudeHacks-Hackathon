@@ -33,5 +33,9 @@ def default_user_id(*, using_supabase: bool = False) -> str:
     if user_id:
         return user_id
     if using_supabase:
-        raise RuntimeError("APP_DEFAULT_USER_ID must be set to a real Supabase auth.users UUID")
-    return "demo"
+        # Don't crash on boot, just return a dummy that will fail at the DB level if used.
+        # This allows the API to at least start up so the user can see error logs.
+        if not user_id:
+            print("[env] Warning: APP_DEFAULT_USER_ID not set. Supabase operations will fail.")
+            return "00000000-0000-0000-0000-000000000000"
+    return user_id or "demo"
