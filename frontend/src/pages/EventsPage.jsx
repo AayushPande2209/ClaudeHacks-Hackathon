@@ -22,7 +22,26 @@ export function EventsPage({ setPage, setTargetRec }) {
 
   return (
     <div style={{maxWidth:900, margin:'0 auto'}}>
-      <div className="h4" style={{marginBottom:20}}>Tariff Events</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div className="h4" style={{ margin: 0 }}>Tariff Events</div>
+        {boms.length > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="body-sm" style={{ color: 'var(--fg-3)' }}>BOM to analyze:</span>
+            <select
+              style={{
+                padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border-1)',
+                background: 'var(--grey-025)', fontSize: 13,
+              }}
+              onChange={(e) => {
+                const b = boms.find(x => x.id === e.target.value);
+                if (b) setBoms([b, ...boms.filter(x => x.id !== b.id)]);
+              }}
+            >
+              {boms.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
       {events.length === 0
         ? <div className="body-sm">No events yet. Run the signal monitor poll.</div>
         : <Glass>

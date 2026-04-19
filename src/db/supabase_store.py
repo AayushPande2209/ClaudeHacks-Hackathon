@@ -6,6 +6,7 @@ The 4 progress methods (_init_progress, push_progress, get_progress,
 get_progress_since) remain in-memory; SSE pipeline state is ephemeral.
 """
 
+import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
@@ -163,7 +164,7 @@ class LocalStore:
                 "recommendation_id": rec_id,
                 "scenario_type": s.get("strategy") or s.get("scenario_type", ""),
                 "payload": s,
-                "landed_cost_delta_pct": s.get("annual_cost_delta_usd"),
+                "landed_cost_delta_pct": None,  # USD value not a percentage, left null
                 "lead_time_change_days": int(s.get("lead_time_months", 0) * 30) if s.get("lead_time_months") else None,
                 "rank": s.get("rank"),
                 "chosen": False,
@@ -315,7 +316,7 @@ class SupabaseStore:
             "hs_codes": event.get("hs_codes", []), "jurisdictions": event.get("jurisdictions", []),
             "rate_change_bps": event.get("rate_change_bps"),
             "raw_excerpt": event.get("raw_excerpt", event.get("description", "")),
-            "content_hash": event.get("content_hash") or str(hash(event.get("title", ""))),
+            "content_hash": event.get("content_hash") or hashlib.sha256(event.get("title", "").encode()).hexdigest(),
             "created_at": event.get("created_at", _now()),
         }
         result = db.table("tariff_events").upsert(row, on_conflict="id").execute()
@@ -359,7 +360,7 @@ class SupabaseStore:
                 "recommendation_id": rec_id,
                 "scenario_type": s.get("strategy") or s.get("scenario_type", ""),
                 "payload": s,
-                "landed_cost_delta_pct": s.get("annual_cost_delta_usd"),
+                "landed_cost_delta_pct": None,  # USD value not a percentage, left null
                 "lead_time_change_days": int(s.get("lead_time_months", 0) * 30) if s.get("lead_time_months") else None,
                 "rank": s.get("rank"),
                 "chosen": False,

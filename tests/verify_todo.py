@@ -1,7 +1,8 @@
 import os
 import sys
 import asyncio
-import json
+import hashlib
+import uuid
 from pathlib import Path
 
 # Add src to sys.path
@@ -16,19 +17,20 @@ async def test_store():
     print(f"Using store: {type(store).__name__}")
     
     # Test Business Profile
+    test_id = str(uuid.uuid4())
     profile = {
-        "id": "test-user-123",
+        "id": test_id,
         "company_name": "Test Corp",
         "industry": "Electronics"
     }
     store.upsert_business_profile(profile)
-    retrieved_profile = store.get_business_profile("test-user-123")
+    retrieved_profile = store.get_business_profile(test_id)
     print(f"Retrieved profile: {retrieved_profile['company_name']}")
     assert retrieved_profile['company_name'] == "Test Corp"
 
     # Test BOM creation
     bom_name = f"Test BOM {os.urandom(4).hex()}"
-    bom = store.create_bom(bom_name)
+    bom = store.create_bom(bom_name, user_id=test_id)
     print(f"Created BOM: {bom['name']} (ID: {bom['id']})")
     
     # Test adding rows
@@ -40,7 +42,7 @@ async def test_store():
     print(f"Added {len(added_rows)} rows to BOM")
     
     # Test listing BOMs
-    boms = store.list_boms()
+    boms = store.list_boms(user_id=test_id)
     print(f"Total BOMs in store: {len(boms)}")
     
     # Test getting BOM

@@ -26,7 +26,10 @@ function SupplierRow({ row }) {
       ) : (
         <div className="body-sm" style={{ marginTop: 6, color: "var(--fg-2)" }}>{w}</div>
       )}
-      <div className="body-sm" style={{ marginTop: 6, color: "var(--fg-2)" }}>{row.rationale}</div>
+      <div style={{ marginTop: 6, color: "var(--fg-2)" }}>{row.rationale}</div>
+      <div style={{ marginTop: 8, fontStyle: 'italic', fontSize: 11, color: "var(--fg-3)" }}>
+        * AI-suggested lead — verify independently before contacting.
+      </div>
     </div>
   );
 }
@@ -52,7 +55,7 @@ function RecDetail({ recId, onBack }) {
             api("GET", `/recommendations/${recId}`)
               .then((r2) => {
                 setRec(r2);
-                if (r2.status !== "running") {
+                if (r2.status === "complete" || r2.status === "error") {
                   clearInterval(interval);
                   setLoading(false);
                 }
@@ -169,7 +172,7 @@ function RecDetail({ recId, onBack }) {
         </Glass>
       )}
 
-      {ranked.length === 0 && rec.status === "awaiting_approval" && (
+      {ranked.length === 0 && rec.status === "complete" && (
         <Glass style={{ marginBottom: 20 }}>
           <div className="body-sm" style={{ padding: 4 }}>
             No affected SKUs found for this event. Try uploading a BOM with supplier country data, or analyze a
@@ -239,7 +242,7 @@ function RecDetail({ recId, onBack }) {
                     </div>
                   </div>
                   <div style={{ flexShrink: 0 }}>
-                    {rec.status === "awaiting_approval" && (
+                    {rec.status === "complete" && (
                       <Btn
                         small
                         disabled={approveDisabled}

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import asyncio
 import os
+import re
 import httpx
 from pydantic import BaseModel
 from groq_client import chat_with_fallback, create_groq_client, get_fallback_model, get_primary_model
@@ -209,7 +210,6 @@ class BOMMapperAgent:
             ],
         )
         self.last_model_used = model_used
-        import re
         text = (response.choices[0].message.content or "").strip()
         if text.startswith("```"):
             text = "\n".join(text.split("\n")[1:])
@@ -270,13 +270,13 @@ class BOMMapperAgent:
             lines = text.split("\n")
             text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
         iso_to_english = {
-            "CN": "china", "US": "united states", "TW": "taiwan", "VN": "vietnam",
-            "BR": "brazil", "MX": "mexico", "IN": "india", "KR": "south korea",
-            "DE": "germany", "JP": "japan", "CA": "canada", "GB": "united kingdom",
-            "IT": "italy", "FR": "france", "ES": "spain", "NL": "netherlands",
-            "PL": "poland", "TH": "thailand", "MY": "malaysia", "ID": "indonesia",
-            "PH": "philippines", "SG": "singapore", "AU": "australia", "NZ": "new zealand",
-            "TR": "turkey", "CZ": "czechia", "HU": "hungary", "SE": "sweden",
+            "CN": "China", "US": "United States", "TW": "Taiwan", "VN": "Vietnam",
+            "BR": "Brazil", "MX": "Mexico", "IN": "India", "KR": "South Korea",
+            "DE": "Germany", "JP": "Japan", "CA": "Canada", "GB": "United Kingdom",
+            "IT": "Italy", "FR": "France", "ES": "Spain", "NL": "Netherlands",
+            "PL": "Poland", "TH": "Thailand", "MY": "Malaysia", "ID": "Indonesia",
+            "PH": "Philippines", "SG": "Singapore", "AU": "Australia", "NZ": "New Zealand",
+            "TR": "Turkey", "CZ": "Czechia", "HU": "Hungary", "SE": "Sweden",
         }
         try:
             results = json.loads(text)
@@ -294,7 +294,7 @@ class BOMMapperAgent:
                 code = lookup.get(i + 1)
                 if not code:
                     continue
-                name = iso_to_english.get(code, code.lower())
+                name = iso_to_english.get(code, code).title()
                 row["supplier_country"] = name
                 row["supplier_country_inferred"] = True
                 print(f"[BOMMapper] {row.get('sku_code')}: inferred country {code} → {name}")
@@ -377,7 +377,6 @@ class BOMMapperAgent:
         self.last_model_used = model_used
         raw = (response.choices[0].message.content or "").strip()
         # Extract first HS-like pattern (digits and dots, 6+ chars)
-        import re
         m = re.search(r"\d{4}\.?\d{2}", raw)
         if m:
             return ScheduleBMatch(hs_code=m.group(0), confidence=0.7)

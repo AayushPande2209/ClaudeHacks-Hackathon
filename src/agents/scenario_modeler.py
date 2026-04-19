@@ -191,6 +191,7 @@ class ScenarioModelerAgent:
             "pros": [],
             "cons": ["Parse error — raw response unavailable"],
             "summary": f"Could not parse {self.strategy} scenario response.",
+            "failed_stub": True
         }
 
 
@@ -216,8 +217,13 @@ async def run_parallel_scenarios(enriched_event: dict, bom_analysis: dict, user_
         elapsed = time.time() - t0
         strategy = ["reshore", "nearshore", "dual_source"][i]
         if isinstance(result, Exception):
-            print(f"[ScenarioModeler] {strategy} failed at t={elapsed:.3f}s: {result}")
-            scenarios.append({"strategy": strategy, "error": str(result), "confidence": 0.0})
+            print(f"[ScenarioModeler) {strategy} failed at t={elapsed:.3f}s: {result}")
+            scenarios.append({
+                "strategy": strategy,
+                "error": str(result),
+                "confidence": 0.0,
+                "parse_error": True # Flag for synthesis filtering
+            })
         else:
             print(f"[ScenarioModeler] {strategy} complete at t={elapsed:.3f}s, cost_delta=${result.get('annual_cost_delta_usd', 0):,.0f}")
             scenarios.append(result)

@@ -45,6 +45,14 @@ def _progress(rec_id: str, stage: str, status: str, detail: str = ""):
 
 async def _synthesize(scenarios: list[dict]) -> tuple[list[dict], str]:
     client = create_groq_client()
+    # Filter out failed scenario stubs before synthesis
+    valid_scenarios = [s for s in scenarios if not s.get("parse_error") and not s.get("failed_stub")]
+    if not valid_scenarios:
+        for i, s in enumerate(scenarios):
+            s["rank"] = i + 1
+            s["recommendation_rationale"] = "Synthesis skipped — all scenarios failed."
+        return scenarios, "none"
+
     response, model_used = await chat_with_fallback(
         client,
         primary_model=MODEL_PLANNER,
@@ -53,7 +61,7 @@ async def _synthesize(scenarios: list[dict]) -> tuple[list[dict], str]:
         max_tokens=4096,
         messages=[
             {"role": "system", "content": SYNTHESIZE_SYSTEM},
-            {"role": "user", "content": json.dumps(scenarios, indent=2)}
+            {"role": "user", "content": json.dumps(valid_scenarios, indent=2)}
         ],
     )
     text = response.choices[0].message.content or "[]"
@@ -94,10 +102,6 @@ async def run_pipeline(rec_id: str, event_id: str, bom_id: str, user_id: str = "
         bom_rows = store.get_bom_rows(bom_id)
         if not bom_rows:
             raise ValueError(f"BOM {bom_id} has no rows")
-
-        # Write BOM rows to temp file for agents that expect file path
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(bom_rows, f)
 
         # ── Stage 1: Signal Monitor ──────────────────────────────────────
         _progress(rec_id, "signal_monitor", "running", "Enriching tariff signal…")
@@ -156,11 +160,10 @@ async def run_pipeline(rec_id: str, event_id: str, bom_id: str, user_id: str = "
         if not bom_analysis.get("affected_skus"):
             _progress(rec_id, "scenario_modeler", "done", "No affected SKUs — no scenarios to model")
             store.update_recommendation(rec_id, {
-                "status": "awaiting_approval",
+                "status": "complete",
                 "enriched_event": enriched_event,
                 "bom_analysis": bom_analysis,
                 "ranked_scenarios": [],
-                "draft_email": {},
             })
             return
 
@@ -183,7 +186,7 @@ async def run_pipeline(rec_id: str, event_id: str, bom_id: str, user_id: str = "
 
         store.save_scenarios(rec_id, ranked)
         store.update_recommendation(rec_id, {
-            "status": "awaiting_approval",
+            "status": "complete",
             "enriched_event": enriched_event,
             "bom_analysis": bom_analysis,
             "ranked_scenarios": ranked,

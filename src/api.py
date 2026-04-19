@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from db.supabase_store import store
 from db.supabase_client import db as _db
-from data.bom_loader import extract_pdf_text, parse_bom_csv
+from data.bom_loader import extract_pdf_text, parse_bom_csv, _normalize_uploaded_row
 from env import default_user_id
 from pipeline import run_pipeline
 from supplier_search_pipeline import run_supplier_search
@@ -33,7 +33,11 @@ app = FastAPI(title="TariffShield API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        *[o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()],
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -220,29 +224,6 @@ async def upload_bom(file: UploadFile = File(...)):
 
 
 def _normalize_row(r: dict, i: int, errors: list) -> dict:
-    # flexible field name mapping
-    out = {}
-    out["sku_code"] = (r.get("sku_code") or r.get("sku") or r.get("SKU", f"SKU-{i:04d}")).strip()
-    out["description"] = (r.get("description") or r.get("Description", "")).strip()
-    out["supplier_name"] = (r.get("supplier_name") or r.get("supplier") or r.get("Supplier", "")).strip()
-    out["supplier_country"] = (r.get("supplier_country") or r.get("country") or r.get("Country", "")).strip()
-    out["tier"] = int(r.get("tier") or r.get("Tier") or 1)
-    try:
-        out["annual_quantity"] = int(float(r.get("annual_quantity") or r.get("annual_volume_units") or r.get("qty") or 0))
-    except Exception:
-        out["annual_quantity"] = 0
-        errors.append(f"Row {i}: invalid annual_quantity")
-    try:
-        out["unit_cost_usd"] = float(r.get("unit_cost_usd") or r.get("unit_cost") or 0)
-    except Exception:
-        out["unit_cost_usd"] = 0.0
-    out["hs_code"] = (r.get("hs_code") or r.get("HS") or r.get("hts_code") or "").strip() or None
-    out["annual_spend_usd"] = float(r.get("annual_spend_usd") or r.get("annual_spend") or
-                                     out["annual_quantity"] * out["unit_cost_usd"])
-    out["has_domestic_alt"] = str(r.get("has_domestic_alt", "false")).lower() in ("true", "1", "yes")
-    out["alt_supplier"] = r.get("alt_supplier") or r.get("alternative_supplier") or None
-    out["lead_time_weeks"] = r.get("lead_time_weeks") or r.get("lead_time") or None
-    out["critical_path"] = str(r.get("critical_path", "false")).lower() in ("true", "1", "yes")
     return out
 
 
@@ -351,6 +332,7 @@ async def upload_materials(
     preview_rows: list[dict] = []
     validation_errors: list[str] = []
     pdf_chars = 0
+    tariff_event_id = None  # always defined
 
     if bom_csv and bom_csv.filename:
         content = await bom_csv.read()
@@ -454,10 +436,10 @@ def _enrich_event_display(ev: dict) -> dict:
     """Add derived display fields not stored in DB."""
     bps = ev.get("rate_change_bps")
     if bps is not None:
-        old_pct = 0
-        new_pct = round(bps / 100, 1)
-        ev["rate_change_hint"] = f"{old_pct}% → {new_pct}%"
-        ev["threat_level"] = "HIGH" if new_pct >= 25 else "MEDIUM" if new_pct >= 10 else "LOW"
+        delta_pct = round(abs(bps) / 100, 1)
+        direction = "+" if bps >= 0 else "-"
+        ev["rate_change_hint"] = f"{direction}{delta_pct}% tariff rate change"
+        ev["threat_level"] = "HIGH" if delta_pct >= 25 else "MEDIUM" if delta_pct >= 10 else "LOW"
     elif not ev.get("rate_change_hint"):
         ev["rate_change_hint"] = ev.get("raw_excerpt", "")[:60] or None
     return ev
@@ -598,30 +580,6 @@ def get_scenario(scenario_id: str):
 @app.get("/api/v1/recommendations")
 def list_recommendations(user_id: str | None = None):
     return store.list_recommendations(user_id=user_id or _DEFAULT_USER_ID)
-
-
-
-
-# ────────────────────────────────────────────────────────────────────────────
-# SSE — pipeline progress streaming
-# ────────────────────────────────────────────────────────────────────────────
-
-@app.post("/api/v1/recommendations/{rec_id}/approve")
-def approve_recommendation(rec_id: str):
-    rec = store.get_recommendation(rec_id)
-    if not rec:
-        raise HTTPException(404, "Recommendation not found")
-    store.update_recommendation(rec_id, {"status": "approved"})
-    return {"status": "approved"}
-
-
-@app.post("/api/v1/recommendations/{rec_id}/reject")
-def reject_recommendation(rec_id: str):
-    rec = store.get_recommendation(rec_id)
-    if not rec:
-        raise HTTPException(404, "Recommendation not found")
-    store.update_recommendation(rec_id, {"status": "rejected"})
-    return {"status": "rejected"}
 
 
 @app.get("/api/v1/recommendations/{rec_id}/stream")

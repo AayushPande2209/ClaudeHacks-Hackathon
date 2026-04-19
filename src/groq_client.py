@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import time
+from collections import deque
 
 from groq import AsyncGroq
 
@@ -13,16 +14,26 @@ load_app_env()
 # ── Rate limiter: max 28 req/min, max 4 concurrent ──────────────────────────
 _MAX_PER_MINUTE = 28
 _CONCURRENCY = 4
-_groq_semaphore = asyncio.Semaphore(_CONCURRENCY)
-_request_times: list[float] = []
+_groq_semaphore: asyncio.Semaphore | None = None
+_request_times: deque[float] = deque()
+
+def _get_semaphore():
+    global _groq_semaphore
+    if _groq_semaphore is None:
+        try:
+            _groq_semaphore = asyncio.Semaphore(_CONCURRENCY)
+        except RuntimeError:
+            # Fallback if no loop yet
+            return asyncio.Semaphore(_CONCURRENCY)
+    return _groq_semaphore
 
 async def _rate_limited_call(coro):
     """Enforce req/min cap + concurrency limit before executing a Groq call."""
-    async with _groq_semaphore:
+    async with _get_semaphore():
         now = time.monotonic()
         # Drop timestamps older than 60 s
         while _request_times and now - _request_times[0] > 60:
-            _request_times.pop(0)
+            _request_times.popleft()
         if len(_request_times) >= _MAX_PER_MINUTE:
             wait = 60 - (now - _request_times[0]) + 0.1
             print(f"[Groq] Rate cap reached, waiting {wait:.1f}s")

@@ -1,5 +1,7 @@
 from __future__ import annotations
-"""Orchestrator Agent — Layer 1 manager. Runs the full TariffPilot pipeline."""
+"""Orchestrator Agent — Layer 1 manager. Runs the full TariffPilot pipeline.
+UNUSED — superseded by pipeline.py for API mode.
+"""
 
 import json
 import asyncio

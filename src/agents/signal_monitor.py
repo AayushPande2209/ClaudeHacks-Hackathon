@@ -398,12 +398,12 @@ class SignalMonitorAgent:
             ]
 
         client = self.tavily
-        groq = create_groq_client()
+        client = self.tavily
         all_results: list[dict] = []
 
         for query in queries:
             try:
-                results = client.search(query, count=5)
+                results = await client.search(query, count=5)
             except Exception as e:
                 print(f"[SignalMonitor] News search failed for '{query}': {e}")
                 continue
@@ -416,15 +416,19 @@ class SignalMonitorAgent:
                 continue
 
             try:
-                resp = await groq.chat.completions.create(
-                    model=get_primary_model(),
+                response, model_used = await chat_with_fallback(
+                    self.client,
+                    primary_model=self.primary_model,
+                    fallback_model=self.fallback_model,
+                    request_name="signal_monitor.news_extraction",
                     max_tokens=1024,
                     messages=[
                         {"role": "system", "content": NEWS_EXTRACTION_SYSTEM_PROMPT},
                         {"role": "user", "content": snippets},
                     ],
                 )
-                text = (resp.choices[0].message.content or "[]").strip()
+                self.last_model_used = model_used
+                text = (response.choices[0].message.content or "[]").strip()
                 if text.startswith("```"):
                     text = "\n".join(text.split("\n")[1:-1])
                 extracted = json.loads(text)
@@ -548,28 +552,29 @@ class SignalMonitorAgent:
 
     def _fallback(self, raw_event: dict, search_rounds: int) -> dict:
         hints = raw_event.get("hs_codes_hint", [])
-        countries = raw_event.get("affected_countries_hint", ["China"])
-        rate_hint = raw_event.get("rate_change_hint", "0% → 25%")
-        old_r, new_r = 0.0, 25.0
-        try:
-            parts = rate_hint.replace("%", "").split("→")
-            old_r = float(parts[0].strip())
-            new_r = float(parts[1].strip())
-        except Exception:
-            pass
+        countries = raw_event.get("affected_countries_hint", [])
+        rate_hint = raw_event.get("rate_change_hint", "")
+        old_r, new_r = 0.0, 0.0
+        if rate_hint and "→" in rate_hint:
+            try:
+                parts = rate_hint.replace("%", "").split("→")
+                old_r = float(parts[0].strip())
+                new_r = float(parts[1].strip())
+            except Exception:
+                pass
         return {
             "event_id": raw_event.get("event_id", "UNKNOWN"),
             "description": raw_event.get("description", "Unknown tariff event"),
-            "hs_codes": hints or ["8542.31.00"],
+            "hs_codes": hints,
             "old_rate_pct": old_r,
             "new_rate_pct": new_r,
             "rate_delta_pct": new_r - old_r,
             "affected_countries": countries,
-            "effective_date": raw_event.get("effective_date_hint", "2026-05-01"),
-            "threat_level": "HIGH" if (new_r - old_r) >= 25 else "MEDIUM",
-            "confidence_score": 0.55,
+            "effective_date": raw_event.get("effective_date_hint"),
+            "threat_level": "HIGH" if (new_r - old_r) >= 25 else "MEDIUM" if (new_r - old_r) > 0 else "LOW",
+            "confidence_score": 0.35, # Significant reduction for fabricated-default avoidance
             "search_rounds_used": search_rounds,
-            "key_facts": ["Fallback enrichment — real search rounds exhausted"],
+            "key_facts": ["Fallback info — high-confidence enrichment unavailable."],
             "sources": [],
         }
 
