@@ -1,0 +1,9 @@
+sku_code,description,supplier_name,supplier_country,tier,annual_quantity,unit_cost_usd,hs_code,lead_time_weeks,critical_path
+CBK-JAR-001,64oz Wide-Mouth Borosilicate Glass Jar,Libbey Glass,China,1,15000,2.80,7013490000,6,true
+CBK-FIL-002,Stainless Steel Mesh Filter (reusable),Yiwu Mingxiu,China,1,15000,1.10,8421210000,5,true
+CBK-LID-003,BPA-Free Plastic Airtight Lid,Shenzhen Bomeijia,China,2,15000,0.45,3923500000,5,false
+CBK-BAG-004,Cold Brew Coarse Grind Blend Bean (1kg),Cafe Imports,Vietnam,1,6000,9.20,0901210000,7,true
+CBK-BOX-005,Retail Gift Box (2-color print),Guangzhou Yifu,China,2,15000,0.95,4819200000,4,false
+CBK-INS-006,Brew Instructions Card (double-sided),Vistaprint,United States,3,15000,0.06,4901990000,1,false
+CBK-ICE-007,Silicone Ice Cube Tray (large format),Shenzhen Kean,China,3,8000,0.72,3924100000,5,false
+CBK-STR-008,Stainless Steel Straw Set (4-pack),Guangdong Huale,China,3,8000,0.88,7323930000,5,false

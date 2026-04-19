@@ -1,0 +1,9 @@
+sku_code,description,supplier_name,supplier_country,tier,annual_quantity,unit_cost_usd,hs_code,lead_time_weeks,critical_path
+TSH-FAB-001,180gsm 100% Cotton Jersey Fabric (per kg),Lutai Textile,China,1,8000,3.20,5205110000,6,true
+TSH-THR-002,Polyester Sewing Thread (5000m cone),Amann Group,Vietnam,2,2000,1.10,5402330000,4,false
+TSH-LAB-003,Woven Brand Label (neck tag),Guangzhou Siying,China,2,40000,0.06,5807100000,3,false
+TSH-SLV-004,Care & Size Woven Label,Guangzhou Siying,China,2,40000,0.04,5807100000,3,false
+TSH-BUT-005,Plastic Hang Tag w/ String,Dongguan Jingyi,China,3,40000,0.07,4821100000,3,false
+TSH-DYE-006,Reactive Dye Set (assorted colorways),Huntsman Textile,India,2,500,18.50,3204160000,5,true
+TSH-POL-007,Biodegradable Poly Bag (per shirt),Shenzhen Greenpak,China,3,40000,0.05,3923210000,3,false
+TSH-BOX-008,Cardboard Retail Box (flat-pack),Guangzhou Yifu,China,3,5000,0.90,4819200000,3,false

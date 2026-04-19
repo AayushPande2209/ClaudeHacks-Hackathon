@@ -1,0 +1,8 @@
+sku_code,description,supplier_name,supplier_country,tier,annual_quantity,unit_cost_usd,hs_code,lead_time_weeks,critical_path
+GCB-ETH-001,Ethiopian Yirgacheffe Green Beans (50kg sack),Trabocca BV,Ethiopia,1,12000,142.50,0901110000,6,true
+GCB-COL-002,Colombian Huila Green Beans (50kg sack),Caravela Coffee,Colombia,1,8000,138.00,0901110000,8,true
+GCB-BAG-003,12oz Kraft Bag w/ One-Way Valve,PouchWorth Co,China,2,50000,0.38,4819400000,4,false
+GCB-LAB-004,Custom Label (House Blend — glossy die-cut),PrintingForLess,United States,2,50000,0.09,4911990000,2,false
+GCB-TIE-005,Resealable Tin Tie Strip,PackagingSource,China,3,50000,0.04,8309900000,4,false
+GCB-BOX-006,Corrugated Shipping Box 12-pack,Uline,United States,3,5000,1.20,4819100000,1,false
+GCB-SCO-007,Stainless Steel Coffee Scoop,Yiwu Zhuohao,China,3,10000,0.55,8215990000,5,false

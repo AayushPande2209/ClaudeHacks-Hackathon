@@ -1,0 +1,11 @@
+sku_code,description,supplier_name,supplier_country,tier,annual_quantity,unit_cost_usd,hs_code,lead_time_weeks,critical_path
+ESP-PMP-001,15-Bar Vibratory Pump (ULKA EP5),Fluid-o-Tech,Italy,1,3000,18.40,8413810000,10,true
+ESP-BLR-002,Stainless Steel Boiler 300ml,Guangdong Welhome,China,1,3000,12.60,7323930000,8,true
+ESP-GRP-003,Portafilter Group Head (58mm brass),Ceme Valves,Italy,1,3000,22.10,8481804000,10,true
+ESP-PCB-004,PID Control PCB Board,Shenzhen Kinco,China,2,3000,8.75,8537100000,6,true
+ESP-HOS-005,High-Pressure Steam Wand Hose (silicone),Sichuan Sunwell,China,2,6000,1.90,3917320000,5,false
+ESP-VLV-006,Solenoid Valve 3-Way (24V),Sirai,Italy,2,3000,9.30,8481202000,9,true
+ESP-SHL-007,ABS Outer Shell (top + sides),Ningbo Haili,China,2,3000,6.40,3926909000,7,false
+ESP-DRP-008,Drip Tray + Grate (stainless),Guangdong Welhome,China,3,3000,3.20,7323930000,7,false
+ESP-CBL-009,Power Cable with IEC C13 Plug,Dongguan Jianye,China,3,3000,1.15,8544421000,4,false
+ESP-PKG-010,Foam-Insert Retail Box,Guangzhou Yifu,China,3,3000,2.80,4819200000,4,false
