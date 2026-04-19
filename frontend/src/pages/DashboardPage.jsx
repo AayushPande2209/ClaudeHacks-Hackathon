@@ -6,65 +6,207 @@ import { LIcon } from "../components/ui/LIcon";
 import { D3WorldMap } from "../components/D3WorldMap";
 import { api } from "../lib/api";
 
-const DEMO_BOMS = [
-  { id: 'p1', name: 'Single Origin Beans', rows: [
-    { sku_code: 'GCB-ETH-001', description: 'Green Coffee Beans, Ethiopia Yirgacheffe (per lb)', supplier_country: 'Ethiopia', unit_cost_usd: 4.20 },
-    { sku_code: 'GCB-COL-002', description: 'Green Coffee Beans, Colombia Huila (per lb)', supplier_country: 'Colombia', unit_cost_usd: 3.75 },
-    { sku_code: 'GCB-VNM-003', description: 'Green Coffee Beans, Vietnam Robusta (per lb)', supplier_country: 'Vietnam', unit_cost_usd: 2.80 },
-  ]},
-  { id: 'p2', name: 'Retail Packaging Kit', rows: [
-    { sku_code: 'PKG-BAG-001', description: '12oz Kraft Bag w/ One-Way Valve', supplier_country: 'China', unit_cost_usd: 0.52 },
-    { sku_code: 'PKG-LBL-001', description: 'Printed Kraft Label (per unit)', supplier_country: 'China', unit_cost_usd: 0.09 },
-    { sku_code: 'PKG-BOX-001', description: '6-Pack Retail Shipper Box', supplier_country: 'Mexico', unit_cost_usd: 0.38 },
-  ]},
-  { id: 'p3', name: 'Brew Accessories', rows: [
-    { sku_code: 'FILT-PP-001', description: 'Paper Coffee Filter, #4 (per unit)', supplier_country: 'Vietnam', unit_cost_usd: 0.03 },
-  ]},
-];
+// ── Edit Row Modal ────────────────────────────────────────────────────────
+function EditRowModal({ bom, row, onSave, onClose }) {
+  const [form, setForm] = useState({
+    sku_code: row.sku_code || '',
+    description: row.description || '',
+    supplier_name: row.supplier_name || '',
+    supplier_country: row.supplier_country || '',
+    unit_cost_usd: row.unit_cost_usd ?? '',
+    annual_quantity: row.annual_quantity ?? '',
+    hs_code: row.hs_code || '',
+    tier: row.tier ?? 1,
+    lead_time_weeks: row.lead_time_weeks ?? '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
 
-function ProductsPanel({ boms }) {
-  const [expanded, setExpanded] = useState(null);
-  const displayBoms = boms.length > 0 ? boms : DEMO_BOMS;
+  const inp = { padding:'7px 10px', borderRadius:6, border:'1px solid var(--border-1)',
+    background:'var(--grey-025)', fontSize:12, color:'var(--fg-1)',
+    outline:'none', fontFamily:'var(--font-sans)', width:'100%', boxSizing:'border-box' };
+  const lbl = { display:'block', marginBottom:4, fontWeight:500, color:'var(--fg-2)', fontSize:11 };
+
+  async function save() {
+    if (!form.supplier_country.trim()) { setErr('Supplier Country is required.'); return; }
+    setSaving(true); setErr('');
+    try {
+      const updates = {};
+      Object.entries(form).forEach(([k,v]) => { if (v !== '' && v !== null) updates[k] = v; });
+      const r = await fetch(`/api/v1/boms/${bom.id}/rows/${row.id}`, {
+        method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      onSave(await r.json());
+    } catch(e) {
+      setErr(e.message);
+    } finally { setSaving(false); }
+  }
 
   return (
-    <div className="left-area" style={{display:'flex', flexDirection:'column', gap:12}}>
-      <div className="eyebrow" style={{marginBottom:4, marginLeft:4}}>Products</div>
-      {displayBoms.map((b, i) => {
-        const isOpen = expanded === b.id;
-        const rows = b.rows || [];
-        return (
-          <Glass key={b.id} padding={14} style={{cursor:'pointer'}}
-            onClick={() => setExpanded(isOpen ? null : b.id)}>
-            <div style={{display:'flex', alignItems:'center', gap:12}}>
-              <div style={{width:36,height:36,borderRadius:8,background:'rgba(76,111,174,0.1)',
-                display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                <LIcon name="box" size={18} color="#4C6FAE"/>
-              </div>
-              <div style={{flex:1, minWidth:0}}>
-                <div style={{fontWeight:600, fontSize:14}}>{b.name || `Product ${i+1}`}</div>
-                <div style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--fg-3)',marginTop:1}}>
-                  {rows.length} SKU{rows.length !== 1 ? 's' : ''} · {boms.length > 0 ? 'Live' : 'Demo'}
-                </div>
-              </div>
-              <LIcon name={isOpen ? 'chevron-up' : 'chevron-down'} size={14} color="var(--fg-3)"/>
+    <div style={{position:'fixed',inset:0,zIndex:1100,background:'rgba(0,0,0,0.45)',
+      display:'flex',alignItems:'center',justifyContent:'center',padding:24}} onClick={onClose}>
+      <div style={{background:'var(--surface)',borderRadius:14,width:'100%',maxWidth:520,
+        boxShadow:'0 24px 80px rgba(0,0,0,0.2)',overflow:'hidden'}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:'16px 20px',borderBottom:'1px solid var(--border-1)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:15}}>Edit Part</div>
+            <div style={{fontSize:11,color:'var(--fg-3)',marginTop:1}}>{bom.name}</div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:18,color:'var(--fg-3)'}}>✕</button>
+        </div>
+        <div style={{padding:'16px 20px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          {[
+            {k:'sku_code',label:'SKU Code'},
+            {k:'supplier_country',label:'Supplier Country *'},
+            {k:'description',label:'Description',full:true},
+            {k:'supplier_name',label:'Supplier Name'},
+            {k:'unit_cost_usd',label:'Unit Cost (USD)',type:'number'},
+            {k:'annual_quantity',label:'Annual Quantity',type:'number'},
+            {k:'hs_code',label:'HS Code'},
+            {k:'lead_time_weeks',label:'Lead Time (weeks)',type:'number'},
+          ].map(({k,label,type,full})=>(
+            <div key={k} style={full ? {gridColumn:'1/-1'} : {}}>
+              <label style={lbl}>{label}</label>
+              <input type={type||'text'} value={form[k]}
+                onChange={e=>setForm(f=>({...f,[k]:e.target.value}))}
+                style={inp}/>
             </div>
-            {isOpen && rows.length > 0 && (
-              <div style={{marginTop:10, borderTop:'1px solid var(--border-1)', paddingTop:10}}>
-                {rows.map((r, ri) => (
-                  <div key={ri} style={{display:'flex', justifyContent:'space-between', alignItems:'center',
-                    padding:'4px 0', fontSize:12,
-                    borderBottom: ri < rows.length-1 ? '1px solid var(--border-1)' : 'none'}}>
-                    <div style={{fontFamily:'var(--font-mono)', color:'var(--fg-2)', width:80, flexShrink:0}}>{r.sku_code}</div>
-                    <div style={{flex:1, color:'var(--fg-1)', padding:'0 8px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.description}</div>
-                    <div style={{color:'var(--fg-3)', marginRight:8, flexShrink:0}}>{r.supplier_country}</div>
-                    <div style={{color:'var(--fg-2)', fontFamily:'var(--font-mono)', flexShrink:0}}>${Number(r.unit_cost_usd||0).toFixed(2)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+          ))}
+          <div>
+            <label style={lbl}>Supply Tier</label>
+            <select value={form.tier} onChange={e=>setForm(f=>({...f,tier:Number(e.target.value)}))} style={inp}>
+              <option value={1}>Tier 1 — Direct</option>
+              <option value={2}>Tier 2</option>
+              <option value={3}>Tier 3</option>
+              <option value={4}>Tier 4 — Raw</option>
+            </select>
+          </div>
+        </div>
+        {err && <div style={{padding:'0 20px 8px',color:'#D14343',fontSize:12}}>{err}</div>}
+        <div style={{padding:'12px 20px',borderTop:'1px solid var(--border-1)',background:'var(--grey-025)',
+          display:'flex',justifyContent:'flex-end',gap:8}}>
+          <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+          <Btn onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Products Panel ─────────────────────────────────────────────────────────
+function ProductsPanel({ boms, loadBoms, setPage }) {
+  const [expanded, setExpanded]   = useState(null);
+  const [editTarget, setEditTarget] = useState(null); // {bom, row}
+  const [deleting, setDeleting]   = useState(null);
+  const [localBoms, setLocalBoms] = useState(boms);
+
+  // keep in sync when parent reloads
+  React.useEffect(() => { setLocalBoms(boms); }, [boms]);
+
+  async function deleteBom(e, bomId) {
+    e.stopPropagation();
+    if (!window.confirm('Delete this product and all its parts?')) return;
+    setDeleting(bomId);
+    try {
+      await fetch(`/api/v1/boms/${bomId}`, { method: 'DELETE' });
+      setLocalBoms(prev => prev.filter(b => b.id !== bomId));
+      if (expanded === bomId) setExpanded(null);
+      if (loadBoms) loadBoms();
+    } finally { setDeleting(null); }
+  }
+
+  function handleRowSaved(bomId, updatedRow) {
+    setLocalBoms(prev => prev.map(b => b.id !== bomId ? b : {
+      ...b, rows: (b.rows||[]).map(r => r.id === updatedRow.id ? updatedRow : r)
+    }));
+    setEditTarget(null);
+  }
+
+  return (
+    <div className="left-area" style={{display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      {/* Header */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexShrink:0}}>
+        <div className="eyebrow">Products <span style={{color:'var(--fg-3)',fontWeight:400}}>({localBoms.length})</span></div>
+        <button onClick={()=>setPage('company')} style={{
+          fontSize:11,padding:'4px 10px',borderRadius:8,border:'1px solid var(--accent)',
+          background:'rgba(76,111,174,0.08)',color:'var(--accent)',cursor:'pointer',fontWeight:600,
+        }}>+ Add</button>
+      </div>
+
+      {/* Scrollable list */}
+      <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:8,
+        paddingRight:2,scrollbarWidth:'thin',scrollbarColor:'var(--border-1) transparent'}}>
+        {localBoms.length === 0 && (
+          <Glass padding={20} style={{textAlign:'center'}}>
+            <div style={{fontSize:12,color:'var(--fg-3)',marginBottom:10}}>No products yet.</div>
+            <Btn small onClick={()=>setPage('company')}>+ Add Product</Btn>
           </Glass>
-        );
-      })}
+        )}
+        {localBoms.map((b, i) => {
+          const isOpen = expanded === b.id;
+          const rows = b.rows || [];
+          return (
+            <Glass key={b.id} padding={12} style={{cursor:'pointer',flexShrink:0}}
+              onClick={() => setExpanded(isOpen ? null : b.id)}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:34,height:34,borderRadius:8,background:'rgba(76,111,174,0.1)',
+                  display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <LIcon name="box" size={16} color="#4C6FAE"/>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{b.name||`Product ${i+1}`}</div>
+                  <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--fg-3)',marginTop:1}}>
+                    {rows.length} SKU{rows.length!==1?'s':''} · Live
+                  </div>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:4}} onClick={e=>e.stopPropagation()}>
+                  <button onClick={e=>deleteBom(e,b.id)} disabled={deleting===b.id}
+                    title="Delete product"
+                    style={{background:'none',border:'none',cursor:'pointer',color:'var(--fg-3)',
+                      fontSize:13,padding:'4px',borderRadius:4,lineHeight:1,
+                      opacity: deleting===b.id ? 0.4 : 1}}>🗑</button>
+                </div>
+                <LIcon name={isOpen?'chevron-up':'chevron-down'} size={13} color="var(--fg-3)"/>
+              </div>
+
+              {isOpen && (
+                <div style={{marginTop:10,borderTop:'1px solid var(--border-1)',paddingTop:10}}
+                  onClick={e=>e.stopPropagation()}>
+                  {rows.length === 0 && (
+                    <div style={{fontSize:11,color:'var(--fg-3)',textAlign:'center',padding:'8px 0'}}>No parts.</div>
+                  )}
+                  {rows.map((r, ri) => (
+                    <div key={ri} style={{display:'flex',alignItems:'center',gap:6,
+                      padding:'5px 0',fontSize:11,
+                      borderBottom: ri<rows.length-1 ? '1px solid var(--border-1)' : 'none'}}>
+                      <div style={{fontFamily:'var(--font-mono)',color:'var(--fg-3)',width:72,flexShrink:0,fontSize:10}}>{r.sku_code||'—'}</div>
+                      <div style={{flex:1,color:'var(--fg-1)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.description}</div>
+                      <div style={{color:'var(--fg-3)',flexShrink:0,marginRight:4,fontSize:10}}>{r.supplier_country}</div>
+                      <div style={{color:'var(--fg-2)',fontFamily:'var(--font-mono)',flexShrink:0,fontSize:10,marginRight:4}}>
+                        {r.unit_cost_usd!=null?`$${Number(r.unit_cost_usd).toFixed(2)}`:'—'}
+                      </div>
+                      <button onClick={()=>setEditTarget({bom:b,row:r})}
+                        title="Edit part"
+                        style={{background:'none',border:'none',cursor:'pointer',color:'var(--accent)',
+                          fontSize:11,padding:'2px 5px',borderRadius:4,flexShrink:0}}>✎</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Glass>
+          );
+        })}
+      </div>
+
+      {editTarget && (
+        <EditRowModal
+          bom={editTarget.bom}
+          row={editTarget.row}
+          onSave={updated => handleRowSaved(editTarget.bom.id, updated)}
+          onClose={() => setEditTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -243,10 +385,10 @@ function GoodIdeaPanel() {
   );
 }
 
-export function DashboardPage({ boms, events, activeMapEvent, setActiveMapEvent }) {
+export function DashboardPage({ boms, events, activeMapEvent, setActiveMapEvent, loadBoms, setPage }) {
   return (
     <>
-      <ProductsPanel boms={boms} />
+      <ProductsPanel boms={boms} loadBoms={loadBoms} setPage={setPage} />
       <div className="center-area">
         <D3WorldMap events={events} boms={boms} activeMapEvent={activeMapEvent} />
         <div style={{position:'absolute', top:30, left:40, pointerEvents:'none'}}>

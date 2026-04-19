@@ -247,6 +247,30 @@ def delete_bom(bom_id: str):
     return {"status": "deleted"}
 
 
+class BomRowPatch(BaseModel):
+    supplier_name: str | None = None
+    supplier_country: str | None = None
+    unit_cost_usd: float | None = None
+    annual_quantity: int | None = None
+    hs_code: str | None = None
+    tier: int | None = None
+    lead_time_weeks: int | None = None
+    critical_path: bool | None = None
+    description: str | None = None
+    sku_code: str | None = None
+
+
+@app.patch("/api/v1/boms/{bom_id}/rows/{row_id}")
+def patch_bom_row(bom_id: str, row_id: str, body: BomRowPatch):
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(400, "No fields to update")
+    updated = store.update_bom_row(bom_id, row_id, updates)
+    if not updated:
+        raise HTTPException(404, "Row not found")
+    return updated
+
+
 async def _generate_bom_tariff_event(bom_id: str, bom_name: str, rows: list[dict]) -> str | None:
     """One LLM call: identify existing US tariffs on the uploaded BOM rows, create + store an event."""
     rows_with_hs = [r for r in rows if r.get("hs_code") or r.get("supplier_country")]

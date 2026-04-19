@@ -129,6 +129,17 @@ class LocalStore:
             self._state["boms"][bom_id]["pdf_notes"] = pdf_notes
             _save(self._state)
 
+    def update_bom_row(self, bom_id: str, row_id: str, updates: dict) -> dict | None:
+        rows = self._state["bom_rows"].get(bom_id, [])
+        for i, row in enumerate(rows):
+            if row["id"] == row_id:
+                allowed = {"supplier_name", "supplier_country", "unit_cost_usd", "annual_quantity",
+                           "hs_code", "tier", "lead_time_weeks", "critical_path", "description", "sku_code"}
+                rows[i] = {**row, **{k: v for k, v in updates.items() if k in allowed}}
+                _save(self._state)
+                return rows[i]
+        return None
+
     # Tariff Events
     def upsert_event(self, event: dict) -> dict:
         event_id = event.get("id") or str(uuid.uuid4())
@@ -318,6 +329,15 @@ class SupabaseStore:
 
     def update_bom_pdf_notes(self, bom_id: str, pdf_notes: str):
         db.table("boms").update({"pdf_notes": pdf_notes}).eq("id", bom_id).execute()
+
+    def update_bom_row(self, bom_id: str, row_id: str, updates: dict) -> dict | None:
+        allowed = {"supplier_name", "supplier_country", "unit_cost_usd", "annual_quantity",
+                   "hs_code", "tier", "lead_time_weeks", "critical_path", "description", "sku_code"}
+        patch = {k: v for k, v in updates.items() if k in allowed}
+        if not patch:
+            return None
+        result = db.table("bom_rows").update(patch).eq("id", row_id).eq("bom_id", bom_id).execute()
+        return result.data[0] if result.data else None
 
     def upsert_event(self, event: dict) -> dict:
         event_id = event.get("id") or str(uuid.uuid4())

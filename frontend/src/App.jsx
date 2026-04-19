@@ -62,6 +62,8 @@ export default function App() {
           events={events}
           activeMapEvent={activeMapEvent}
           setActiveMapEvent={setActiveMapEvent}
+          loadBoms={loadBoms}
+          setPage={setPage}
         />
       )}
       
