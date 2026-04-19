@@ -685,6 +685,117 @@ def get_audit():
 
 
 # ────────────────────────────────────────────────────────────────────────────
+# News Feed — trade policy intelligence via NewsAPI
+# ────────────────────────────────────────────────────────────────────────────
+
+import time
+import urllib.request
+
+_news_cache: dict = {"ts": 0, "articles": []}
+_NEWS_TTL = 600  # 10-minute cache
+
+_HIGH_KEYWORDS = [
+    "145%", "tariff hike", "tariff increase", "executive order", "section 301",
+    "section 232", "embargo", "sanctions", "trade ban", "import ban",
+    "reciprocal tariff", "retaliatory", "trade war escalat",
+]
+_MEDIUM_KEYWORDS = [
+    "tariff", "import duty", "customs duty", "trade war", "trade deficit",
+    "wto", "trade policy", "ustr", "supply chain disruption", "trade restriction",
+    "trade agreement", "free trade", "dumping", "antidumping",
+]
+_LOW_KEYWORDS = [
+    "supply chain", "manufacturing", "trade", "export", "import",
+    "logistics", "freight", "shipping", "sourcing",
+]
+
+
+def _score_article(title: str, description: str) -> dict:
+    text = (title + " " + (description or "")).lower()
+    for kw in _HIGH_KEYWORDS:
+        if kw in text:
+            return {"level": "HIGH", "color": "#D14343", "score": 90}
+    for kw in _MEDIUM_KEYWORDS:
+        if kw in text:
+            return {"level": "MEDIUM", "color": "#D97706", "score": 55}
+    for kw in _LOW_KEYWORDS:
+        if kw in text:
+            return {"level": "LOW", "color": "#4C6FAE", "score": 25}
+    return {"level": "INFO", "color": "#6B7280", "score": 5}
+
+
+def _fetch_newsapi(query: str, api_key: str, page_size: int = 10) -> list:
+    url = (
+        f"https://newsapi.org/v2/everything"
+        f"?q={urllib.parse.quote(query)}"
+        f"&language=en"
+        f"&sortBy=publishedAt"
+        f"&pageSize={page_size}"
+        f"&apiKey={api_key}"
+    )
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "TariffPilot/1.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return json.loads(resp.read()).get("articles", [])
+    except Exception as exc:
+        print(f"[news] NewsAPI fetch failed for '{query}': {exc}")
+        return []
+
+
+import urllib.parse
+
+
+@app.get("/api/v1/news")
+def get_trade_news(refresh: bool = False):
+    """Fetch and score recent trade policy news via NewsAPI. Cached 10 min."""
+    global _news_cache
+    api_key = os.getenv("NEWSAPI_KEY", "")
+    if not api_key:
+        return {"articles": [], "error": "NEWSAPI_KEY not configured", "cached": False}
+
+    now = time.time()
+    if not refresh and _news_cache["ts"] and (now - _news_cache["ts"]) < _NEWS_TTL:
+        return {"articles": _news_cache["articles"], "cached": True, "count": len(_news_cache["articles"])}
+
+    queries = [
+        "US tariff trade policy 2026",
+        "import tariff announcement executive order",
+        "supply chain trade war China tariff",
+    ]
+
+    seen = set()
+    articles = []
+    for q in queries:
+        for a in _fetch_newsapi(q, api_key, page_size=8):
+            url = a.get("url", "")
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            title = a.get("title") or ""
+            description = a.get("description") or a.get("content") or ""
+            risk = _score_article(title, description)
+            articles.append({
+                "id": hashlib.sha256(url.encode()).hexdigest()[:12],
+                "title": title,
+                "description": description[:220] + ("…" if len(description) > 220 else ""),
+                "url": url,
+                "source": (a.get("source") or {}).get("name", "Unknown"),
+                "published_at": a.get("publishedAt", ""),
+                "image_url": a.get("urlToImage"),
+                "risk_level": risk["level"],
+                "risk_color": risk["color"],
+                "risk_score": risk["score"],
+            })
+
+    # Sort by risk score desc then publish date
+    articles.sort(key=lambda x: (-x["risk_score"], x["published_at"]), reverse=False)
+    articles.sort(key=lambda x: -x["risk_score"])
+
+    _news_cache = {"ts": now, "articles": articles[:30]}
+    return {"articles": articles[:30], "cached": False, "count": len(articles[:30])}
+
+
+# ────────────────────────────────────────────────────────────────────────────
 # Demo seed — load sample data so the UI has something to show immediately
 # ────────────────────────────────────────────────────────────────────────────
 

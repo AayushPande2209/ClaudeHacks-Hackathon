@@ -1,20 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Glass } from "../components/ui/Glass";
 import { Btn } from "../components/ui/Btn";
 import { Chip } from "../components/ui/Chip";
 import { LIcon } from "../components/ui/LIcon";
 import { D3WorldMap } from "../components/D3WorldMap";
+import { api } from "../lib/api";
 
 const DEMO_BOMS = [
-  { id: 'p1', name: 'Precision Grinder', rows: [
-    { sku_code: 'GRD-001', description: 'Burr grind motor', supplier_country: 'China', unit_cost_usd: 42 },
-    { sku_code: 'GRD-002', description: 'Grind housing', supplier_country: 'Taiwan', unit_cost_usd: 18 },
+  { id: 'p1', name: 'Single Origin Beans', rows: [
+    { sku_code: 'GCB-ETH-001', description: 'Green Coffee Beans, Ethiopia Yirgacheffe (per lb)', supplier_country: 'Ethiopia', unit_cost_usd: 4.20 },
+    { sku_code: 'GCB-COL-002', description: 'Green Coffee Beans, Colombia Huila (per lb)', supplier_country: 'Colombia', unit_cost_usd: 3.75 },
+    { sku_code: 'GCB-VNM-003', description: 'Green Coffee Beans, Vietnam Robusta (per lb)', supplier_country: 'Vietnam', unit_cost_usd: 2.80 },
   ]},
-  { id: 'p2', name: 'Barista Shirts', rows: [
-    { sku_code: 'SHT-001', description: 'Cotton blend shirt', supplier_country: 'Vietnam', unit_cost_usd: 9 },
+  { id: 'p2', name: 'Retail Packaging Kit', rows: [
+    { sku_code: 'PKG-BAG-001', description: '12oz Kraft Bag w/ One-Way Valve', supplier_country: 'China', unit_cost_usd: 0.52 },
+    { sku_code: 'PKG-LBL-001', description: 'Printed Kraft Label (per unit)', supplier_country: 'China', unit_cost_usd: 0.09 },
+    { sku_code: 'PKG-BOX-001', description: '6-Pack Retail Shipper Box', supplier_country: 'Mexico', unit_cost_usd: 0.38 },
   ]},
-  { id: 'p3', name: 'House Blend', rows: [
-    { sku_code: 'COF-001', description: 'Green coffee beans', supplier_country: 'Brazil', unit_cost_usd: 6 },
+  { id: 'p3', name: 'Brew Accessories', rows: [
+    { sku_code: 'FILT-PP-001', description: 'Paper Coffee Filter, #4 (per unit)', supplier_country: 'Vietnam', unit_cost_usd: 0.03 },
   ]},
 ];
 
@@ -65,60 +69,176 @@ function ProductsPanel({ boms }) {
   );
 }
 
-function EventsPanel({ events, activeMapEvent, setActiveMapEvent }) {
-  const displayEvents = events.slice(0, 3);
-  const activeId = activeMapEvent?.id ?? activeMapEvent?.event_id;
+const RISK_META = {
+  HIGH:   { bg: 'rgba(209,67,67,0.1)',   fg: '#D14343', bar: '#D14343' },
+  MEDIUM: { bg: 'rgba(217,119,6,0.1)',   fg: '#D97706', bar: '#D97706' },
+  LOW:    { bg: 'rgba(76,111,174,0.1)',  fg: '#4C6FAE', bar: '#4C6FAE' },
+  INFO:   { bg: 'rgba(107,114,128,0.1)', fg: '#6B7280', bar: '#6B7280' },
+};
+
+function timeAgo(iso) {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const h = Math.floor(diff / 3600000);
+  if (h < 1) return `${Math.floor(diff / 60000)}m ago`;
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function NewsCard({ article }) {
+  const risk = RISK_META[article.risk_level] || RISK_META.INFO;
+  return (
+    <a
+      href={article.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+    >
+      <Glass padding={14} style={{ cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+        onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.1)'}
+        onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
+      >
+        {/* Risk bar accent */}
+        <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%',
+          background: risk.bar, borderRadius: '8px 0 0 8px' }} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+          <Chip bg={risk.bg} fg={risk.fg}>{article.risk_level}</Chip>
+          <span style={{ fontSize: 10, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>
+            {article.source}
+          </span>
+          <span style={{ fontSize: 10, color: 'var(--fg-3)', marginLeft: 'auto' }}>
+            {timeAgo(article.published_at)}
+          </span>
+        </div>
+
+        <div style={{ fontWeight: 600, fontSize: 13, lineHeight: '18px', marginBottom: 5,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {article.title}
+        </div>
+
+        <div style={{ fontSize: 11, color: 'var(--fg-2)', lineHeight: '16px',
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {article.description}
+        </div>
+
+        {/* Risk score bar */}
+        <div style={{ marginTop: 8, height: 3, borderRadius: 2, background: 'var(--border-1)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${article.risk_score}%`,
+            background: risk.bar, borderRadius: 2, transition: 'width 0.6s ease' }} />
+        </div>
+        <div style={{ fontSize: 9, color: 'var(--fg-3)', marginTop: 2, fontFamily: 'var(--font-mono)' }}>
+          RISK SCORE {article.risk_score}/100
+        </div>
+      </Glass>
+    </a>
+  );
+}
+
+function GoodIdeaPanel() {
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(null);
+  const [lastRefresh, setLastRefresh] = useState(null);
+  const [tab, setTab]           = useState('all'); // 'all' | 'high' | 'formal'
+
+  const load = useCallback(async (forceRefresh = false) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const url = forceRefresh ? '/news?refresh=true' : '/news';
+      const d = await api('GET', url);
+      setArticles(d.articles || []);
+      setLastRefresh(new Date());
+    } catch (e) {
+      setError('Could not load news feed.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(() => load(), 5 * 60 * 1000); // refresh every 5 min
+    return () => clearInterval(t);
+  }, [load]);
+
+  const filtered = tab === 'high'
+    ? articles.filter(a => a.risk_level === 'HIGH')
+    : tab === 'formal'
+    ? articles.filter(a => a.risk_level === 'HIGH' || a.risk_level === 'MEDIUM')
+    : articles;
+
+  const highCount = articles.filter(a => a.risk_level === 'HIGH').length;
 
   return (
-    <div className="right-area" style={{display:'flex', flexDirection:'column', gap:16}}>
-      <div className="eyebrow" style={{marginBottom:4, marginLeft:4}}>Tariff Signals</div>
-      {displayEvents.length === 0 ? (
-        <Glass padding={20} style={{textAlign:'center'}}>
-          <div className="body-sm">No active signals. Load Demo or poll Federal Register.</div>
-        </Glass>
-      ) : displayEvents.map(ev => {
-        const evId = ev.id ?? ev.event_id;
-        const isActive = activeId != null && evId === activeId;
-        return (
-        <Glass
-          key={evId}
-          padding={16}
-          style={{
-            borderLeft: isActive ? '3px solid var(--accent)' : undefined,
-            boxShadow: isActive ? '0 0 0 1px rgba(76,111,174,0.2)' : undefined,
-          }}
-        >
-          <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8, flexWrap:'wrap'}}>
-            <Chip bg='rgba(209,67,67,.1)' fg='#D14343'>{ev.threat_level || 'EVENT'}</Chip>
-            <div className="eyebrow">{ev.source||'manual'}</div>
-            {isActive && (
-              <Chip bg="rgba(76,111,174,.12)" fg="#4C6FAE">Map focus</Chip>
+    <div className="right-area" style={{ display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ paddingBottom: 10, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="eyebrow">Good Idea</div>
+            {highCount > 0 && (
+              <span style={{ background: '#D14343', color: '#fff', borderRadius: 10,
+                fontSize: 10, fontWeight: 700, padding: '1px 7px' }}>
+                {highCount} HIGH
+              </span>
             )}
           </div>
-          <div style={{fontWeight:600,fontSize:14,marginBottom:6,lineHeight:'20px'}}>{ev.title}</div>
-          <div style={{fontSize:12,color:'var(--fg-2)',marginBottom:12,display:'-webkit-box',
-            WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>
-            {ev.description||ev.raw_excerpt}
+          <button
+            onClick={() => load(true)}
+            disabled={loading}
+            style={{ background: 'none', border: 'none', cursor: loading ? 'default' : 'pointer',
+              color: 'var(--fg-3)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}
+          >
+            <LIcon name="refresh-cw" size={12} color={loading ? 'var(--fg-3)' : 'var(--accent)'}/>
+            {loading ? 'Loading…' : 'Refresh'}
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {[['all','All'], ['high','High Risk'], ['formal','Formal']].map(([key, label]) => (
+            <button key={key} onClick={() => setTab(key)} style={{
+              fontSize: 11, padding: '4px 10px', borderRadius: 12, border: 'none', cursor: 'pointer',
+              background: tab === key ? 'var(--accent)' : 'var(--border-1)',
+              color: tab === key ? '#fff' : 'var(--fg-2)',
+              fontWeight: tab === key ? 600 : 400,
+            }}>{label}</button>
+          ))}
+        </div>
+
+        {lastRefresh && (
+          <div style={{ fontSize: 9, color: 'var(--fg-3)', marginTop: 5, fontFamily: 'var(--font-mono)' }}>
+            Updated {lastRefresh.toLocaleTimeString()} · Trade & tariff intelligence
           </div>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-            borderTop:'1px solid var(--border-1)',paddingTop:12}}>
-            <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:'#D14343'}}>
-              {ev.rate_change_hint || 'Rate unknown'}
-            </div>
-            <Btn
-              small
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveMapEvent(isActive ? null : ev);
-              }}
-            >
-              Map Impact
-            </Btn>
-          </div>
-        </Glass>
-        );
-      })}
+        )}
+      </div>
+
+      {/* Scrollable list */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8,
+        paddingRight: 2,
+        scrollbarWidth: 'thin', scrollbarColor: 'var(--border-1) transparent' }}>
+        {error && (
+          <Glass padding={16} style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: '#D14343' }}>{error}</div>
+            <Btn small variant="ghost" onClick={() => load(true)} style={{ marginTop: 8 }}>Retry</Btn>
+          </Glass>
+        )}
+        {!error && loading && articles.length === 0 && (
+          <Glass padding={16} style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: 'var(--fg-3)' }}>Fetching trade intelligence…</div>
+          </Glass>
+        )}
+        {!error && !loading && filtered.length === 0 && (
+          <Glass padding={16} style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: 'var(--fg-3)' }}>No articles in this filter.</div>
+          </Glass>
+        )}
+        {filtered.map(article => (
+          <NewsCard key={article.id} article={article} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -131,16 +251,34 @@ export function DashboardPage({ boms, events, activeMapEvent, setActiveMapEvent 
         <D3WorldMap events={events} boms={boms} activeMapEvent={activeMapEvent} />
         <div style={{position:'absolute', top:30, left:40, pointerEvents:'none'}}>
           <div className="h4" style={{letterSpacing:'-0.02em'}}>Global Supply Matrix</div>
-          <div className="body-sm" style={{marginTop:4, display:'flex', alignItems:'center', gap:8}}>
-            <span style={{width:8,height:8,borderRadius:4,background:'var(--sev-critical)'}}/> High Risk Corridors
+          <div style={{marginTop:8, display:'flex', flexDirection:'column', gap:6}}>
+            <div className="body-sm" style={{display:'flex', alignItems:'center', gap:8}}>
+              <svg width="28" height="8" style={{flexShrink:0}}>
+                <line x1="0" y1="4" x2="28" y2="4" stroke="var(--sev-critical)" strokeWidth="2" strokeDasharray="5,3"/>
+              </svg>
+              <span>High Risk Corridor</span>
+            </div>
+            <div className="body-sm" style={{display:'flex', alignItems:'center', gap:8}}>
+              <svg width="28" height="8" style={{flexShrink:0}}>
+                <line x1="0" y1="4" x2="28" y2="4" stroke="var(--domain-reshore)" strokeWidth="2" strokeDasharray="5,3"/>
+              </svg>
+              <span>Active Supplier</span>
+            </div>
+            <div className="body-sm" style={{display:'flex', alignItems:'center', gap:8}}>
+              <span style={{width:10,height:10,borderRadius:5,background:'rgba(209,67,67,0.35)',flexShrink:0,display:'inline-block'}}/>
+              <span>Tariff-Exposed Region</span>
+            </div>
+            <div className="body-sm" style={{display:'flex', alignItems:'center', gap:8}}>
+              <span style={{width:10,height:10,borderRadius:5,background:'rgba(76,111,174,0.28)',flexShrink:0,display:'inline-block'}}/>
+              <span>Supplier Region</span>
+            </div>
+          </div>
+          <div className="body-sm" style={{marginTop:10, color:'var(--fg-3)', fontSize:10}}>
+            Hover corridors for tariff details
           </div>
         </div>
       </div>
-      <EventsPanel
-        events={events}
-        activeMapEvent={activeMapEvent}
-        setActiveMapEvent={setActiveMapEvent}
-      />
+      <GoodIdeaPanel />
     </>
   );
 }
