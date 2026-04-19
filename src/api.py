@@ -317,6 +317,15 @@ async def _generate_bom_tariff_event(bom_id: str, bom_name: str, rows: list[dict
                 rate_change_bps = int(float(nums[0]) * 100)
         except Exception:
             pass
+        # Always include the actual supplier countries from BOM rows so the
+        # BOM mapper can match even if the LLM missed some countries.
+        bom_countries = list({
+            r.get("supplier_country", "").strip()
+            for r in rows if r.get("supplier_country", "").strip()
+        })
+        llm_countries = data.get("affected_countries", [])
+        merged_countries = list(set(llm_countries + bom_countries))
+
         event = {
             "id": str(uuid.uuid4()),
             "source": "bom-upload",
@@ -324,11 +333,11 @@ async def _generate_bom_tariff_event(bom_id: str, bom_name: str, rows: list[dict
             "description": data.get("description", ""),
             "url": f"internal:bom:{bom_id}",
             "hs_codes": data.get("hs_codes", []),
-            "jurisdictions": data.get("affected_countries", []),
+            "jurisdictions": merged_countries,
             "rate_change_bps": rate_change_bps,
             "threat_level": data.get("threat_level", "MEDIUM"),
             "hs_codes_hint": data.get("hs_codes", []),
-            "affected_countries_hint": data.get("affected_countries", []),
+            "affected_countries_hint": merged_countries,
             "published_at": datetime.now(timezone.utc).isoformat(),
             "raw_excerpt": data.get("description", f"Tariff event for {bom_name}"),
             "content_hash": f"bom-upload-{bom_id}",

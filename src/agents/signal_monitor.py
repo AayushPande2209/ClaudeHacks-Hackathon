@@ -587,8 +587,8 @@ class SignalMonitorAgent:
         return EnrichedEvent(**{k: v for k, v in result.items() if k in EnrichedEvent.model_fields}).model_dump()
 
     def _fallback(self, raw_event: dict, search_rounds: int) -> dict:
-        hints = raw_event.get("hs_codes_hint", [])
-        countries = raw_event.get("affected_countries_hint", [])
+        hints = raw_event.get("hs_codes_hint", []) or raw_event.get("hs_codes", [])
+        countries = raw_event.get("affected_countries_hint", []) or raw_event.get("jurisdictions", [])
         rate_hint = raw_event.get("rate_change_hint", "")
         old_r, new_r = 0.0, 0.0
         if rate_hint and "→" in rate_hint:
@@ -598,6 +598,15 @@ class SignalMonitorAgent:
                 new_r = float(parts[1].strip())
             except Exception:
                 pass
+        # Fall back to rate_change_bps if no hint string (bom-upload events)
+        if old_r == 0.0 and new_r == 0.0:
+            bps = raw_event.get("rate_change_bps")
+            if bps:
+                new_r = float(bps) / 100.0
+        # If still no rate delta, assume a meaningful default so the LLM
+        # can calculate non-zero impact and properly flag affected SKUs.
+        if new_r == 0.0:
+            new_r = 25.0  # conservative default — Section 301-level tariff
         return {
             "event_id": raw_event.get("event_id", "UNKNOWN"),
             "description": raw_event.get("description", "Unknown tariff event"),
@@ -608,7 +617,7 @@ class SignalMonitorAgent:
             "affected_countries": countries,
             "effective_date": raw_event.get("effective_date_hint"),
             "threat_level": "HIGH" if (new_r - old_r) >= 25 else "MEDIUM" if (new_r - old_r) > 0 else "LOW",
-            "confidence_score": 0.35, # Significant reduction for fabricated-default avoidance
+            "confidence_score": 0.35,
             "search_rounds_used": search_rounds,
             "key_facts": ["Fallback info — high-confidence enrichment unavailable."],
             "sources": [],

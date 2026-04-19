@@ -11,6 +11,39 @@ from groq_client import chat_with_fallback, create_groq_client, get_fallback_mod
 from utils.context_builder import compile_business_context
 CHUNK_SIZE = 100
 
+ISO2_TO_NAME: dict[str, str] = {
+    "CN": "China", "US": "United States", "TW": "Taiwan", "VN": "Vietnam",
+    "BR": "Brazil", "MX": "Mexico", "IN": "India", "KR": "South Korea",
+    "DE": "Germany", "JP": "Japan", "CA": "Canada", "GB": "United Kingdom",
+    "IT": "Italy", "FR": "France", "ES": "Spain", "NL": "Netherlands",
+    "PL": "Poland", "TH": "Thailand", "MY": "Malaysia", "ID": "Indonesia",
+    "PH": "Philippines", "SG": "Singapore", "AU": "Australia", "ET": "Ethiopia",
+    "BD": "Bangladesh", "PK": "Pakistan", "TR": "Turkey", "CZ": "Czechia",
+    "HU": "Hungary", "SE": "Sweden", "RU": "Russia", "UA": "Ukraine",
+    "KH": "Cambodia", "MM": "Myanmar", "LK": "Sri Lanka", "CO": "Colombia",
+    "ZA": "South Africa", "NG": "Nigeria", "EG": "Egypt", "MA": "Morocco",
+    "KE": "Kenya", "GH": "Ghana", "TZ": "Tanzania", "UG": "Uganda",
+    "PE": "Peru", "CL": "Chile", "AR": "Argentina", "EC": "Ecuador",
+}
+_NAME_TO_ISO2: dict[str, str] = {v.lower(): k for k, v in ISO2_TO_NAME.items()}
+
+
+def _expand_countries(countries: list[str]) -> list[str]:
+    """Return list with both ISO-2 codes and full English names so the LLM can match either."""
+    expanded: set[str] = set()
+    for c in countries:
+        c = c.strip()
+        if not c:
+            continue
+        expanded.add(c)
+        upper = c.upper()
+        lower = c.lower()
+        if upper in ISO2_TO_NAME:
+            expanded.add(ISO2_TO_NAME[upper])
+        if lower in _NAME_TO_ISO2:
+            expanded.add(_NAME_TO_ISO2[lower].upper())
+    return sorted(expanded)
+
 
 class BOMAnalysis(BaseModel):
     """Validated output of BOMMapperAgent.run() — SPEC §3.2."""
@@ -85,7 +118,16 @@ class BOMMapperAgent:
     async def run(self, enriched_event: dict, bom: list[dict], user_id: str = "") -> dict:
         print(f"\n[BOMMapper] Mapping {len(bom)} SKUs against tariff event")
         self._biz_context = compile_business_context(user_id) if user_id else ""
-        
+
+        # Normalize affected_countries to include both ISO-2 codes and full names
+        raw_countries = enriched_event.get("affected_countries") or []
+        enriched_event = {
+            **enriched_event,
+            "affected_countries": _expand_countries(raw_countries),
+        }
+        if raw_countries:
+            print(f"[BOMMapper] affected_countries expanded: {enriched_event['affected_countries']}")
+
         # Enrich missing HS codes via Census/USITC if keys available
         if os.getenv("CENSUS_API_KEY"):
             bom = await self._enrich_missing_hs_codes(bom)
