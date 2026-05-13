@@ -23,9 +23,9 @@ function riskColor(rate) {
 
 // Ocean-blue globe base — created once outside component to avoid GC churn
 const GLOBE_MATERIAL = new THREE.MeshPhongMaterial({
-  color:     new THREE.Color('#1a6b9a'),
-  specular:  new THREE.Color('#0a2a4a'),
-  shininess: 40,
+  color:     new THREE.Color('#0b3d5c'),
+  specular:  new THREE.Color('#051e30'),
+  shininess: 30,
 });
 
 export function Globe3D({ boms, activeMapEvent }) {
@@ -151,9 +151,9 @@ export function Globe3D({ boms, activeMapEvent }) {
 
         // Landmasses: green country polygons from world-atlas
         polygonsData={countries}
-        polygonCapColor={() => '#2e7d3a'}
-        polygonSideColor={() => '#1b5226'}
-        polygonStrokeColor={() => '#52b06a'}
+        polygonCapColor={() => '#1a4d24'}
+        polygonSideColor={() => '#0d2e15'}
+        polygonStrokeColor={() => '#2d6b38'}
         polygonAltitude={0.006}
 
         // Trade corridors as animated arcs
