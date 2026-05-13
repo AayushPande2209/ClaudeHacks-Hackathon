@@ -11,8 +11,8 @@ function SupplierRow({ row }) {
     <div style={{
       padding: 12,
       borderRadius: 8,
-      background: "rgba(76,111,174,0.06)",
-      border: "1px solid var(--border-1)",
+      background: "var(--bg-elevated)",
+      border: "1px solid var(--bg-border)",
       marginBottom: 8,
     }}>
       <div style={{ fontWeight: 600, fontSize: 13 }}>{row.company_name}</div>
@@ -77,12 +77,12 @@ function PipelineProgress({ recId }) {
         const done = s.status === "done";
         const err  = s.status === "error";
         const running = s.status === "running";
-        const color = err ? "#D14343" : done ? "#35683F" : "var(--accent)";
+        const color = err ? "var(--danger)" : done ? "var(--success)" : "var(--accent)";
         const icon = err ? "✕" : done ? "✓" : "…";
         return (
           <div key={s.stage} style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 12 }}>
             <span style={{ width: 14, textAlign: "center", color, fontWeight: 700, flexShrink: 0 }}>{icon}</span>
-            <span style={{ color: running ? "var(--fg-1)" : done ? "var(--fg-2)" : "var(--fg-3)", fontWeight: running ? 600 : 400 }}>
+            <span style={{ color: running ? "var(--text-primary)" : done ? "var(--text-secondary)" : "var(--text-muted)", fontWeight: running ? 600 : 400 }}>
               {STAGE_LABELS[s.stage] || s.stage}
             </span>
             {s.detail && (
@@ -220,14 +220,14 @@ function RecDetail({ recId, onBack }) {
         <Glass
           style={{
             marginBottom: 20,
-            border: "1px solid rgba(209,67,67,.28)",
-            background: "rgba(209,67,67,.08)",
+            border: "1px solid var(--danger-25)",
+            background: "var(--danger-dim)",
           }}
         >
-          <div className="eyebrow" style={{ marginBottom: 8, color: "#D14343" }}>
+          <div className="eyebrow" style={{ marginBottom: 8, color: "var(--danger)" }}>
             Pipeline Error
           </div>
-          <div style={{ color: "#D14343", whiteSpace: "pre-wrap" }}>{rec.error}</div>
+          <div style={{ color: "var(--danger)", whiteSpace: "pre-wrap" }}>{rec.error}</div>
         </Glass>
       )}
 
@@ -263,8 +263,8 @@ function RecDetail({ recId, onBack }) {
                 key={sid || i}
                 padding={16}
                 style={{
-                  border: chosen ? "1px solid rgba(79,143,90,0.45)" : undefined,
-                  boxShadow: chosen ? "0 0 0 1px rgba(79,143,90,0.12)" : undefined,
+                  border: chosen ? "1px solid var(--success-45)" : undefined,
+                  boxShadow: chosen ? "0 0 0 1px var(--success-12)" : undefined,
                 }}
               >
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
@@ -273,7 +273,7 @@ function RecDetail({ recId, onBack }) {
                       <span style={{ fontWeight: 700, color: "var(--accent)", width: 24 }}>#{s.rank || i + 1}</span>
                       <span style={{ fontWeight: 600, textTransform: "capitalize" }}>{st}</span>
                       {chosen && (
-                        <Chip bg="rgba(79,143,90,.14)" fg="#35683F">
+                        <Chip bg="var(--success-10)" fg="var(--success)">
                           Approved
                         </Chip>
                       )}
@@ -318,7 +318,7 @@ function RecDetail({ recId, onBack }) {
                 </div>
 
                 {chosen && Array.isArray(results) && results.length > 0 && (
-                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border-1)" }}>
+                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--bg-border)" }}>
                     <div className="eyebrow" style={{ marginBottom: 10 }}>
                       Supplier candidates
                     </div>
@@ -397,7 +397,7 @@ export function RecommendationsPage({ targetRec, setTargetRec }) {
             </thead>
             <tbody>
               {recs.map((r, i) => (
-                <tr key={i} style={{ borderTop: "1px solid var(--border-1)" }}>
+                <tr key={i} style={{ borderTop: "1px solid var(--bg-border)" }}>
                   <td
                     style={{
                       padding: "8px 12px",

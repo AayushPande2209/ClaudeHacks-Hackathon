@@ -76,7 +76,7 @@ async def main():
 
     # Run pipeline
     from agents.orchestrator import OrchestratorAgent
-    orchestrator = OrchestratorAgent(demo_mode=args.demo)
+    orchestrator = OrchestratorAgent()
 
     result = await orchestrator.run(raw_event, bom_path=args.bom)
 

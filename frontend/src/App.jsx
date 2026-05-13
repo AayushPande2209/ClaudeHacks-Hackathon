@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { AppHeader } from "./components/AppHeader";
+import { ThemeSwitcher } from "./components/ThemeSwitcher";
 import { DashboardPage } from "./pages/DashboardPage";
 import { UploadPage } from "./pages/UploadPage";
 import { AuditPage } from "./pages/AuditPage";
 import { EventsPage } from "./pages/EventsPage";
 import { RecommendationsPage } from "./pages/RecommendationsPage";
+import { useTheme } from "./hooks/useTheme";
 import { api } from "./lib/api";
 
 export default function App() {
+  const { activeThemeId, setTheme, themes } = useTheme();
+
   const [page, setPage]   = useState('dashboard');
   const [apiOk, setApiOk] = useState(false);
   const [events, setEvents] = useState([]);
@@ -56,7 +60,7 @@ export default function App() {
   return (
     <div className={page === 'dashboard' ? 'layout-grid' : ''} style={page !== 'dashboard' ? {minHeight:'100vh', display:'flex', flexDirection:'column'} : {}}>
       <AppHeader page={page} setPage={setPage} apiOk={apiOk} />
-      
+
       {page === 'dashboard' && (
         <DashboardPage
           boms={boms}
@@ -67,7 +71,7 @@ export default function App() {
           setPage={setPage}
         />
       )}
-      
+
       {page !== 'dashboard' && (
         <main style={{padding:'40px', flex:1, margin:'0 auto', width:'100%', maxWidth:'1200px', overflowY:'auto'}}>
           {page === 'company' && (
@@ -78,6 +82,8 @@ export default function App() {
           {page === 'scenarios' && <RecommendationsPage targetRec={targetRec} setTargetRec={setTargetRec} />}
         </main>
       )}
+
+      <ThemeSwitcher activeThemeId={activeThemeId} setTheme={setTheme} themes={themes} />
     </div>
   );
 }

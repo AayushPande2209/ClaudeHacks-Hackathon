@@ -32,10 +32,10 @@ export function EventsPage({ events: eventsProp, loadEvents, setPage, setTargetR
   }
 
   const threatColor = (level) => {
-    if (level === 'CRITICAL') return '#D14343';
-    if (level === 'HIGH') return '#D97757';
-    if (level === 'MEDIUM') return '#C49A2B';
-    return '#4F8F5A';
+    if (level === 'CRITICAL') return '#ef4444';
+    if (level === 'HIGH') return '#f59e0b';
+    if (level === 'MEDIUM') return '#f59e0b';
+    return '#22c55e';
   };
 
   return (
@@ -47,8 +47,8 @@ export function EventsPage({ events: eventsProp, loadEvents, setPage, setTargetR
             <span className="body-sm" style={{ color: 'var(--fg-3)' }}>BOM to analyze:</span>
             <select
               style={{
-                padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border-1)',
-                background: 'var(--grey-025)', fontSize: 13,
+                padding: '4px 8px', borderRadius: 6, border: '1px solid var(--bg-border)',
+                background: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 13,
               }}
               onChange={(e) => {
                 const b = boms.find(x => x.id === e.target.value);
@@ -64,10 +64,10 @@ export function EventsPage({ events: eventsProp, loadEvents, setPage, setTargetR
       {activeMapEvent && (
         <div style={{
           marginBottom: 16, padding: '10px 16px', borderRadius: 10,
-          background: 'rgba(209,67,67,0.07)', border: '1px solid rgba(209,67,67,0.2)',
+          background: 'var(--danger-dim)', border: '1px solid var(--danger-25)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <div style={{ fontSize: 13, color: '#D14343', fontWeight: 500 }}>
+          <div style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 500 }}>
             🗺 Map filtered by: <strong>{activeMapEvent.title}</strong>
           </div>
           <Btn small variant="ghost" onClick={() => setActiveMapEvent(null)}>Clear Filter</Btn>
@@ -106,11 +106,11 @@ export function EventsPage({ events: eventsProp, loadEvents, setPage, setTargetR
                           padding: '2px 8px', borderRadius: 6,
                           background: `${color}18`, color,
                         }}>{threat}</span>
-                        <Chip bg="var(--grey-100)" fg="var(--fg-3)">{ev.source}</Chip>
+                        <Chip bg="var(--bg-elevated)" fg="var(--text-muted)">{ev.source}</Chip>
                         {isActive && (
                           <span style={{
                             fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
-                            background: 'rgba(209,67,67,0.12)', color: '#D14343',
+                            background: 'var(--danger-dim)', color: 'var(--danger)',
                             fontFamily: 'var(--font-mono)',
                           }}>MAP ACTIVE</span>
                         )}
@@ -144,9 +144,9 @@ export function EventsPage({ events: eventsProp, loadEvents, setPage, setTargetR
                       <button
                         onClick={() => toggleMapImpact(ev)}
                         style={{
-                          padding: '5px 12px', borderRadius: 8, border: `1px solid ${isActive ? color : 'var(--border-2)'}`,
-                          background: isActive ? `${color}14` : 'transparent',
-                          color: isActive ? color : 'var(--fg-2)',
+                          padding: '5px 12px', borderRadius: 8, border: `1px solid ${isActive ? color : 'var(--bg-border)'}`,
+                          background: isActive ? `${color}18` : 'var(--bg-elevated)',
+                          color: isActive ? color : 'var(--text-muted)',
                           fontSize: 12, fontWeight: 600, cursor: 'pointer',
                           transition: 'all 0.15s', whiteSpace: 'nowrap',
                         }}

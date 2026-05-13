@@ -4,63 +4,159 @@
   font-weight: 400; font-style: normal; font-display: swap;
 }
 :root {
-  --grey-000:#FFFFFF;--grey-025:#FAFAFB;--grey-050:#F4F4F6;--grey-100:#ECECEF;
-  --grey-150:#E1E1E6;--grey-200:#D2D3D9;--grey-300:#B3B5BE;--grey-400:#8A8D98;
-  --grey-500:#6A6D78;--grey-600:#4B4E57;--grey-700:#34363D;--grey-800:#22242A;
-  --grey-900:#141519;--grey-950:#09090B;
-  --orange-050:#FDEFE8;--orange-300:#EA936F;--orange-500:#D97757;
-  --orange-600:#BC5A3B;--orange-700:#8F4128;
-  --sev-critical:#D14343;--sev-high:#D97757;--sev-medium:#C49A2B;--sev-low:#4F8F5A;
-  --domain-reshore:#4C6FAE;--domain-nearshore:#B08038;--domain-dualsource:#6D7588;
-  --canvas-gradient: radial-gradient(at 20% 0%,#FDEFE8 0%,transparent 50%),
-                     radial-gradient(at 100% 30%,#E8EDF5 0%,transparent 45%),
-                     linear-gradient(180deg,#F8F8FA,#EEEEF2);
-  --glass-bg:rgba(255,255,255,0.68);--glass-thick-bg:rgba(255,255,255,0.82);
-  --glass-border-lo:rgba(20,21,25,0.06);--glass-blur:18px;--glass-blur-heavy:28px;
-  --shadow-glass-1:0 1px 0 rgba(255,255,255,.8) inset,0 -1px 0 rgba(20,21,25,.04) inset,
-                   0 1px 2px rgba(20,21,25,.04),0 8px 24px -8px rgba(20,21,25,.08);
-  --shadow-glass-2:0 1px 0 rgba(255,255,255,.9) inset,0 -1px 0 rgba(20,21,25,.05) inset,
-                   0 4px 8px rgba(20,21,25,.06),0 24px 48px -16px rgba(20,21,25,.14);
-  --specular:linear-gradient(180deg,rgba(255,255,255,.7) 0%,rgba(255,255,255,0) 40%);
-  --fg-1:var(--grey-900);--fg-2:var(--grey-600);--fg-3:var(--grey-500);--fg-4:var(--grey-400);
-  --fg-on-dark:var(--grey-050);
-  --border-1:var(--grey-150);--border-2:var(--grey-200);
-  --accent:var(--orange-500);--accent-hover:var(--orange-600);--accent-press:var(--orange-700);
-  --status-ok:var(--sev-low);--status-danger:var(--sev-critical);--status-warn:var(--sev-medium);
-  --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
-  --font-mono:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;
-  --font-display:'Gatilca','Inter',serif;
-  --radius-2:10px;--radius-3:14px;--radius-4:20px;--radius-full:999px;
-  --motion-fast:150ms;--motion-base:240ms;--ease-glass:cubic-bezier(0.22,1,0.36,1);
-}
-*,*::before,*::after{box-sizing:border-box;}
-html,body{margin:0;font-family:var(--font-sans);font-size:14px;line-height:20px;
-  color:var(--fg-1);background:var(--canvas-gradient);background-attachment:fixed;
-  min-height:100vh;-webkit-font-smoothing:antialiased;}
-#root{min-height:100vh;}
-table{border-collapse:collapse;width:100%;}
-button{font-family:var(--font-sans);}
-input,textarea,select{font-family:var(--font-mono);}
-.eyebrow{font-family:var(--font-mono);font-size:11px;font-weight:500;
-  letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);}
-.h4{font-weight:600;font-size:22px;line-height:30px;margin:0;}
-.h5{font-weight:600;font-size:18px;line-height:26px;margin:0;}
-.body-sm{font-size:13px;line-height:18px;color:var(--fg-2);}
+  /* ── Theme tokens (Carbon & Amber default; overridden by useTheme) ─────── */
+  --bg-base:      #111111;
+  --bg-surface:   #1a1a1a;
+  --bg-elevated:  #242424;
+  --bg-border:    #2a2a2a;
+  --accent:       #f59e0b;
+  --accent-dim:   #2a1f00;
+  --accent-text:  #1a1200;
+  --text-primary:   #f5f5f5;
+  --text-secondary: #a3a3a3;
+  --text-muted:     #737373;
+  --text-disabled:  #525252;
+  --danger:       #ef4444;
+  --danger-dim:   #2a1a1a;
+  --success:      #22c55e;
+  --success-dim:  #0a2e1a;
 
-/* Map Layout Grid */
+  /* ── Backward-compat aliases (components using --amber still work) ──────── */
+  --amber:      var(--accent);
+  --amber-dim:  var(--accent-dim);
+  --amber-text: var(--accent-text);
+
+  /* ── Computed tints (auto-update when accent/danger/success change) ───── */
+  --accent-10:  color-mix(in srgb, var(--accent)  10%, transparent);
+  --accent-12:  color-mix(in srgb, var(--accent)  12%, transparent);
+  --accent-18:  color-mix(in srgb, var(--accent)  18%, transparent);
+  --accent-20:  color-mix(in srgb, var(--accent)  20%, transparent);
+  --accent-25:  color-mix(in srgb, var(--accent)  25%, transparent);
+  --danger-10:  color-mix(in srgb, var(--danger)  10%, transparent);
+  --danger-25:  color-mix(in srgb, var(--danger)  25%, transparent);
+  --danger-35:  color-mix(in srgb, var(--danger)  35%, transparent);
+  --success-10: color-mix(in srgb, var(--success) 10%, transparent);
+  --success-12: color-mix(in srgb, var(--success) 12%, transparent);
+  --success-25: color-mix(in srgb, var(--success) 25%, transparent);
+  --success-45: color-mix(in srgb, var(--success) 45%, transparent);
+
+  /* ── Severity colors ───────────────────────────────────────────────────── */
+  --sev-critical: #ef4444;
+  --sev-high:     #f59e0b;
+  --sev-medium:   #f59e0b;
+  --sev-low:      #22c55e;
+
+  /* ── Domain colors (scenario types) ───────────────────────────────────── */
+  --domain-reshore:    var(--accent);
+  --domain-nearshore:  var(--text-secondary);
+  --domain-dualsource: var(--text-muted);
+
+  /* ── Semantic aliases (used throughout components) ─────────────────────── */
+  --fg-1:  var(--text-primary);
+  --fg-2:  var(--text-secondary);
+  --fg-3:  var(--text-muted);
+  --fg-4:  var(--text-disabled);
+  --fg-on-dark: var(--text-primary);
+
+  --border-1: var(--bg-border);
+  --border-2: var(--bg-border);
+
+  --accent-hover: color-mix(in srgb, var(--accent) 80%, #000);
+  --accent-press: color-mix(in srgb, var(--accent) 65%, #000);
+
+  --status-ok:     var(--success);
+  --status-danger: var(--danger);
+  --status-warn:   var(--accent);
+
+  /* ── Grey scale (remapped to surface values) ───────────────────────────── */
+  --grey-000: var(--text-primary);
+  --grey-025: var(--bg-surface);
+  --grey-050: var(--bg-surface);
+  --grey-100: var(--bg-border);
+  --grey-150: var(--bg-border);
+  --grey-200: #333333;
+  --grey-300: #444444;
+  --grey-400: var(--text-disabled);
+  --grey-500: var(--text-muted);
+  --grey-600: var(--text-secondary);
+  --grey-700: #d4d4d4;
+  --grey-800: #e5e5e5;
+  --grey-900: var(--text-primary);
+  --grey-950: #fafafa;
+
+  /* ── Glass (flat dark surfaces, no blur) ──────────────────────────────── */
+  --glass-bg:        var(--bg-surface);
+  --glass-thick-bg:  var(--bg-elevated);
+  --glass-border-lo: var(--bg-border);
+  --shadow-glass-1:  0 1px 3px rgba(0,0,0,0.4);
+  --shadow-glass-2:  0 4px 16px rgba(0,0,0,0.5);
+
+  /* ── Typography ────────────────────────────────────────────────────────── */
+  --font-sans:    'Inter',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+  --font-mono:    'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;
+  --font-display: 'Gatilca','Inter',serif;
+
+  /* ── Radii & motion ────────────────────────────────────────────────────── */
+  --radius-2:    10px;
+  --radius-3:    14px;
+  --radius-4:    20px;
+  --radius-full: 999px;
+  --motion-fast: 150ms;
+  --motion-base: 240ms;
+  --ease-glass:  cubic-bezier(0.22,1,0.36,1);
+}
+
+*,*::before,*::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--fg-1);
+  background: var(--bg-base);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* Smooth theme transitions on all structural elements */
+div, button, input, select, textarea, a, span, table, td, th, tr, thead, tbody {
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+#root { min-height: 100vh; }
+
+table { border-collapse: collapse; width: 100%; }
+button { font-family: var(--font-sans); }
+input, textarea, select { font-family: var(--font-mono); }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.h4 { font-weight: 600; font-size: 22px; line-height: 30px; margin: 0; }
+.h5 { font-weight: 600; font-size: 18px; line-height: 26px; margin: 0; }
+.body-sm { font-size: 13px; line-height: 18px; color: var(--fg-2); }
+
+/* ── Map Layout Grid ──────────────────────────────────────────────────── */
 .layout-grid {
   display: grid;
   height: 100vh;
   grid-template-rows: 70px 1fr 80px;
   grid-template-columns: 280px 1fr 300px;
-  grid-template-areas: 
+  grid-template-areas:
     "header header header"
     "left center right"
     "left bottom right";
 }
-.header-area { grid-area: header; z-index: 20; }
-.left-area { grid-area: left; padding: 20px 0 20px 20px; overflow-y: auto; z-index: 10; scrollbar-width: none; }
-.center-area { grid-area: center; position: relative; }
-.right-area { grid-area: right; padding: 20px 20px 20px 20px; overflow-y: auto; z-index: 10; scrollbar-width: none; }
-.bottom-area { grid-area: bottom; padding: 10px 20px; display: flex; align-items: center; justify-content: center; z-index: 15; pointer-events: none; }
+.header-area  { grid-area: header; z-index: 20; }
+.left-area    { grid-area: left;   padding: 20px 0 20px 20px; overflow-y: auto; z-index: 10; scrollbar-width: none; }
+.center-area  { grid-area: center; position: relative; }
+.right-area   { grid-area: right;  padding: 20px 20px 20px 20px; overflow-y: auto; z-index: 10; scrollbar-width: none; }
+.bottom-area  { grid-area: bottom; padding: 10px 20px; display: flex; align-items: center; justify-content: center; z-index: 15; pointer-events: none; }
 .left-area::-webkit-scrollbar, .right-area::-webkit-scrollbar { display: none; }

@@ -3,7 +3,7 @@ import { Glass } from "../components/ui/Glass";
 import { Btn } from "../components/ui/Btn";
 import { Chip } from "../components/ui/Chip";
 import { LIcon } from "../components/ui/LIcon";
-import { D3WorldMap } from "../components/D3WorldMap";
+import { Globe3D } from "../components/Globe3D";
 import { api } from "../lib/api";
 
 // ── Edit Row Modal ────────────────────────────────────────────────────────
@@ -22,10 +22,10 @@ function EditRowModal({ bom, row, onSave, onClose }) {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
-  const inp = { padding:'7px 10px', borderRadius:6, border:'1px solid var(--border-1)',
-    background:'var(--grey-025)', fontSize:12, color:'var(--fg-1)',
+  const inp = { padding:'7px 10px', borderRadius:6, border:'1px solid var(--bg-border)',
+    background:'var(--bg-elevated)', fontSize:12, color:'var(--text-primary)',
     outline:'none', fontFamily:'var(--font-sans)', width:'100%', boxSizing:'border-box' };
-  const lbl = { display:'block', marginBottom:4, fontWeight:500, color:'var(--fg-2)', fontSize:11 };
+  const lbl = { display:'block', marginBottom:4, fontWeight:500, color:'var(--text-secondary)', fontSize:11 };
 
   async function save() {
     if (!form.supplier_country.trim()) { setErr('Supplier Country is required.'); return; }
@@ -46,9 +46,9 @@ function EditRowModal({ bom, row, onSave, onClose }) {
   return (
     <div style={{position:'fixed',inset:0,zIndex:1100,background:'rgba(0,0,0,0.45)',
       display:'flex',alignItems:'center',justifyContent:'center',padding:24}} onClick={onClose}>
-      <div style={{background:'#FFFFFF',borderRadius:14,width:'100%',maxWidth:520,
-        boxShadow:'0 24px 80px rgba(0,0,0,0.2)',overflow:'hidden'}} onClick={e=>e.stopPropagation()}>
-        <div style={{padding:'16px 20px',borderBottom:'1px solid var(--border-1)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <div style={{background:'var(--bg-surface)',borderRadius:14,width:'100%',maxWidth:520,
+        boxShadow:'0 24px 80px rgba(0,0,0,0.6)',border:'1px solid var(--bg-border)',overflow:'hidden'}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:'16px 20px',borderBottom:'1px solid var(--bg-border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div>
             <div style={{fontWeight:700,fontSize:15}}>Edit Part</div>
             <div style={{fontSize:11,color:'var(--fg-3)',marginTop:1}}>{bom.name}</div>
@@ -83,9 +83,9 @@ function EditRowModal({ bom, row, onSave, onClose }) {
             </select>
           </div>
         </div>
-        {err && <div style={{padding:'0 20px 8px',color:'#D14343',fontSize:12}}>{err}</div>}
+        {err && <div style={{padding:'0 20px 8px',color:'#ef4444',fontSize:12}}>{err}</div>}
         <div style={{padding:'12px 20px',borderTop:'1px solid var(--border-1)',background:'#F4F4F6',
-          display:'flex',justifyContent:'flex-end',gap:8}}>
+          display:'flex',justifyContent:'flex-end',gap:8,background:'var(--bg-elevated)'}}>
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
           <Btn onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</Btn>
         </div>
@@ -130,7 +130,7 @@ function ProductsPanel({ boms, loadBoms, setPage }) {
         <div className="eyebrow">Products <span style={{color:'var(--fg-3)',fontWeight:400}}>({localBoms.length})</span></div>
         <button onClick={()=>setPage('company')} style={{
           fontSize:11,padding:'4px 10px',borderRadius:8,border:'1px solid var(--accent)',
-          background:'rgba(76,111,174,0.08)',color:'var(--accent)',cursor:'pointer',fontWeight:600,
+          background:'var(--accent-dim)',color:'var(--accent)',cursor:'pointer',fontWeight:600,
         }}>+ Add</button>
       </div>
 
@@ -150,9 +150,9 @@ function ProductsPanel({ boms, loadBoms, setPage }) {
             <Glass key={b.id} padding={12} style={{cursor:'pointer',flexShrink:0}}
               onClick={() => setExpanded(isOpen ? null : b.id)}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{width:34,height:34,borderRadius:8,background:'rgba(76,111,174,0.1)',
+                <div style={{width:34,height:34,borderRadius:8,background:'var(--accent-10)',
                   display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                  <LIcon name="box" size={16} color="#4C6FAE"/>
+                  <LIcon name="box" size={16} color="var(--accent)"/>
                 </div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontWeight:600,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{b.name||`Product ${i+1}`}</div>
@@ -212,10 +212,10 @@ function ProductsPanel({ boms, loadBoms, setPage }) {
 }
 
 const RISK_META = {
-  HIGH:   { bg: 'rgba(209,67,67,0.1)',   fg: '#D14343', bar: '#D14343' },
-  MEDIUM: { bg: 'rgba(217,119,6,0.1)',   fg: '#D97706', bar: '#D97706' },
-  LOW:    { bg: 'rgba(76,111,174,0.1)',  fg: '#4C6FAE', bar: '#4C6FAE' },
-  INFO:   { bg: 'rgba(107,114,128,0.1)', fg: '#6B7280', bar: '#6B7280' },
+  HIGH:   { bg: 'rgba(239,68,68,0.12)',  fg: '#ef4444', bar: '#ef4444' },
+  MEDIUM: { bg: 'rgba(245,158,11,0.12)', fg: '#f59e0b', bar: '#f59e0b' },
+  LOW:    { bg: 'rgba(34,197,94,0.12)',  fg: '#22c55e', bar: '#22c55e' },
+  INFO:   { bg: 'rgba(115,115,115,0.1)', fg: '#737373', bar: '#737373' },
 };
 
 function timeAgo(iso) {
@@ -424,7 +424,7 @@ function GoodIdeaPanel({ boms }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div className="eyebrow">Good Idea</div>
             {highCount > 0 && (
-              <span style={{ background: '#D14343', color: '#fff', borderRadius: 10,
+              <span style={{ background: 'var(--danger)', color: '#fff', borderRadius: 10,
                 fontSize: 10, fontWeight: 700, padding: '1px 7px' }}>
                 {highCount} HIGH
               </span>
@@ -434,14 +434,14 @@ function GoodIdeaPanel({ boms }) {
             onClick={() => load(true)}
             disabled={loading}
             style={{
-              background: loading ? 'var(--border-1)' : 'var(--accent)',
+              background: loading ? 'var(--bg-border)' : 'var(--accent)',
               border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer',
-              color: '#fff', fontSize: 11, fontWeight: 600,
+              color: 'var(--accent-text)', fontSize: 11, fontWeight: 600,
               display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
               opacity: loading ? 0.6 : 1,
             }}
           >
-            <LIcon name="refresh-cw" size={11} color="#fff"/>
+            <LIcon name="refresh-cw" size={11} color="var(--accent-text)"/>
             {loading ? 'Loading…' : 'Refresh Feed'}
           </button>
         </div>
@@ -451,8 +451,8 @@ function GoodIdeaPanel({ boms }) {
           {[['all','All'], ['high','High Risk'], ['formal','Formal']].map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)} style={{
               fontSize: 11, padding: '4px 10px', borderRadius: 12, border: 'none', cursor: 'pointer',
-              background: tab === key ? 'var(--accent)' : 'var(--border-1)',
-              color: tab === key ? '#fff' : 'var(--fg-2)',
+              background: tab === key ? 'var(--accent)' : 'var(--bg-border)',
+              color: tab === key ? 'var(--accent-text)' : 'var(--fg-2)',
               fontWeight: tab === key ? 600 : 400,
             }}>{label}</button>
           ))}
@@ -471,7 +471,7 @@ function GoodIdeaPanel({ boms }) {
         scrollbarWidth: 'thin', scrollbarColor: 'var(--border-1) transparent' }}>
         {error && (
           <Glass padding={16} style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 12, color: '#D14343' }}>{error}</div>
+            <div style={{ fontSize: 12, color: 'var(--danger)' }}>{error}</div>
             <Btn small variant="ghost" onClick={() => load(true)} style={{ marginTop: 8 }}>Retry</Btn>
           </Glass>
         )}
@@ -498,7 +498,7 @@ export function DashboardPage({ boms, events, activeMapEvent, setActiveMapEvent,
     <>
       <ProductsPanel boms={boms} loadBoms={loadBoms} setPage={setPage} />
       <div className="center-area">
-        <D3WorldMap events={events} boms={boms} activeMapEvent={activeMapEvent} />
+        <Globe3D boms={boms} activeMapEvent={activeMapEvent} />
         <div style={{position:'absolute', top:30, left:40, pointerEvents:'none'}}>
           <div className="h4" style={{letterSpacing:'-0.02em'}}>Global Supply Matrix</div>
           <div style={{marginTop:8, display:'flex', flexDirection:'column', gap:6}}>
@@ -515,11 +515,11 @@ export function DashboardPage({ boms, events, activeMapEvent, setActiveMapEvent,
               <span>Active Supplier</span>
             </div>
             <div className="body-sm" style={{display:'flex', alignItems:'center', gap:8}}>
-              <span style={{width:10,height:10,borderRadius:5,background:'rgba(209,67,67,0.35)',flexShrink:0,display:'inline-block'}}/>
+              <span style={{width:10,height:10,borderRadius:5,background:'var(--danger-35)',flexShrink:0,display:'inline-block'}}/>
               <span>Tariff-Exposed Region</span>
             </div>
             <div className="body-sm" style={{display:'flex', alignItems:'center', gap:8}}>
-              <span style={{width:10,height:10,borderRadius:5,background:'rgba(76,111,174,0.28)',flexShrink:0,display:'inline-block'}}/>
+              <span style={{width:10,height:10,borderRadius:5,background:'var(--accent-25)',flexShrink:0,display:'inline-block'}}/>
               <span>Supplier Region</span>
             </div>
           </div>

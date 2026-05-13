@@ -29,18 +29,18 @@ function partsToCsv(parts) {
 }
 
 const inputStyle = {
-  padding: '8px 10px', borderRadius: 7, border: '1px solid var(--border-1)',
-  background: 'var(--grey-025)', fontSize: 13, color: 'var(--fg-1)',
+  padding: '8px 10px', borderRadius: 7, border: '1px solid var(--bg-border)',
+  background: 'var(--bg-elevated)', fontSize: 13, color: 'var(--text-primary)',
   outline: 'none', fontFamily: 'var(--font-sans)', width: '100%', boxSizing: 'border-box',
 };
-const labelStyle = { display: 'block', marginBottom: 5, fontWeight: 500, color: 'var(--fg-2)', fontSize: 12 };
+const labelStyle = { display: 'block', marginBottom: 5, fontWeight: 500, color: 'var(--text-secondary)', fontSize: 12 };
 
 // ── Product Card ──────────────────────────────────────────────────────────
 
 function ProductCard({ product, onRemove }) {
   const [open, setOpen] = useState(false);
-  const statusColor = product.status === 'done' ? '#16a34a'
-    : product.status === 'error' ? '#D14343' : '#D97706';
+  const statusColor = product.status === 'done' ? '#22c55e'
+    : product.status === 'error' ? '#ef4444' : '#f59e0b';
   const statusLabel = product.status === 'done' ? 'Uploaded'
     : product.status === 'error' ? 'Failed' : 'Pending';
 
@@ -49,7 +49,7 @@ function ProductCard({ product, onRemove }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{
           width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-          background: 'rgba(76,111,174,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--accent-10)', display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 18,
         }}>☕</div>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -106,13 +106,13 @@ function ProductCard({ product, onRemove }) {
         <div style={{ marginTop: 10, fontSize: 11, color: 'var(--fg-3)', borderTop: '1px solid var(--border-1)', paddingTop: 10 }}
           onClick={e => e.stopPropagation()}>
           {product.result.tariff_event_id && (
-            <span style={{ color: '#D97706' }}>⚡ Tariff event detected on upload · </span>
+            <span style={{ color: 'var(--accent)' }}>⚡ Tariff event detected on upload · </span>
           )}
           bom_id: {product.result.bom_id}
         </div>
       )}
       {open && product.error && (
-        <div style={{ marginTop: 10, fontSize: 11, color: '#D14343', borderTop: '1px solid var(--border-1)', paddingTop: 10 }}>
+        <div style={{ marginTop: 10, fontSize: 11, color: 'var(--danger)', borderTop: '1px solid var(--bg-border)', paddingTop: 10 }}>
           {product.error}
         </div>
       )}
@@ -152,9 +152,9 @@ function AddProductModal({ onSave, onClose }) {
     <button key={key} onClick={() => setTab(key)} style={{
       flex: 1, padding: '9px 0', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
       borderRadius: 8,
-      background: tab === key ? 'var(--surface)' : 'transparent',
-      color: tab === key ? 'var(--fg-1)' : 'var(--fg-3)',
-      boxShadow: tab === key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+      background: tab === key ? 'var(--bg-surface)' : 'transparent',
+      color: tab === key ? 'var(--text-primary)' : 'var(--text-muted)',
+      boxShadow: tab === key ? '0 1px 4px rgba(0,0,0,0.3)' : 'none',
     }}>{label}</button>
   );
 
@@ -165,13 +165,13 @@ function AddProductModal({ onSave, onClose }) {
       padding: 24,
     }} onClick={onClose}>
       <div style={{
-        background: '#FFFFFF', borderRadius: 16, width: '100%', maxWidth: 560,
+        background: 'var(--bg-surface)', borderRadius: 16, width: '100%', maxWidth: 560,
         maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 24px 80px rgba(0,0,0,0.25)',
+        border: '1px solid var(--bg-border)', boxShadow: '0 24px 80px rgba(0,0,0,0.7)',
       }} onClick={e => e.stopPropagation()}>
 
         {/* Header */}
-        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border-1)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--bg-border)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ fontWeight: 700, fontSize: 16 }}>Add Product</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--fg-3)', lineHeight: 1, padding: 4 }}>✕</button>
         </div>
@@ -188,7 +188,7 @@ function AddProductModal({ onSave, onClose }) {
           </div>
 
           {/* Tabs */}
-          <div style={{ display: 'flex', gap: 4, background: '#ECECEF', borderRadius: 10, padding: 4, marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 4, background: 'var(--bg-elevated)', borderRadius: 10, padding: 4, marginBottom: 16 }}>
             {TAB_BTN('manual', '✏️  Add Parts Manually')}
             {TAB_BTN('upload', '📄  Upload CSV / PDF')}
           </div>
@@ -201,7 +201,7 @@ function AddProductModal({ onSave, onClose }) {
                 <div style={{ borderRadius: 8, border: '1px solid var(--border-1)', overflow: 'hidden', marginBottom: 4 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
                     <thead>
-                      <tr style={{ background: 'var(--grey-025)', color: 'var(--fg-3)' }}>
+                      <tr style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
                         {['SKU', 'Description', 'Country', 'Cost', ''].map((h, i) => (
                           <th key={i} style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 500 }}>{h}</th>
                         ))}
@@ -215,7 +215,7 @@ function AddProductModal({ onSave, onClose }) {
                           <td style={{ padding: '4px 8px' }}>{p.supplier_country}</td>
                           <td style={{ padding: '4px 8px' }}>{p.unit_cost_usd ? `$${Number(p.unit_cost_usd).toFixed(2)}` : '—'}</td>
                           <td style={{ padding: '4px 8px' }}>
-                            <button onClick={() => removePart(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#D14343', fontSize: 13 }}>✕</button>
+                            <button onClick={() => removePart(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 13 }}>✕</button>
                           </td>
                         </tr>
                       ))}
@@ -232,13 +232,13 @@ function AddProductModal({ onSave, onClose }) {
                     style={inputStyle} onChange={e => setNewPart(p => ({ ...p, sku_code: e.target.value }))} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Supplier Country <span style={{ color: '#D14343' }}>*</span></label>
+                  <label style={labelStyle}>Supplier Country <span style={{ color: 'var(--danger)' }}>*</span></label>
                   <input type="text" placeholder="China, Vietnam, CN…" value={newPart.supplier_country}
                     style={inputStyle} onChange={e => setNewPart(p => ({ ...p, supplier_country: e.target.value }))} />
                 </div>
               </div>
               <div>
-                <label style={labelStyle}>Description <span style={{ color: '#D14343' }}>*</span></label>
+                <label style={labelStyle}>Description <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <input type="text" placeholder="e.g. 12oz Kraft Bag w/ One-Way Valve" value={newPart.description}
                   style={inputStyle} onChange={e => setNewPart(p => ({ ...p, description: e.target.value }))}
                   onKeyDown={e => e.key === 'Enter' && addPart()} />
@@ -257,7 +257,7 @@ function AddProductModal({ onSave, onClose }) {
               </div>
 
               {showAdvanced && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', background: 'var(--grey-025)', borderRadius: 8, border: '1px solid var(--border-1)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', background: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--bg-border)' }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-3)', letterSpacing: '0.05em' }}>ADVANCED</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     <div>
@@ -293,12 +293,12 @@ function AddProductModal({ onSave, onClose }) {
                 </div>
               )}
 
-              {partError && <div style={{ color: '#D14343', fontSize: 12 }}>{partError}</div>}
+              {partError && <div style={{ color: 'var(--danger)', fontSize: 12 }}>{partError}</div>}
 
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={addPart} style={{
                   flex: 1, padding: '8px 14px', borderRadius: 8, border: '1px dashed var(--accent)',
-                  background: 'rgba(76,111,174,0.06)', color: 'var(--accent)', fontSize: 13,
+                  background: 'var(--accent-dim)', color: 'var(--accent)', fontSize: 13,
                   fontWeight: 600, cursor: 'pointer',
                 }}>+ Add Part</button>
                 <button onClick={() => setShowAdvanced(a => !a)} style={{
@@ -312,14 +312,14 @@ function AddProductModal({ onSave, onClose }) {
           {/* Upload tab */}
           {tab === 'upload' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ fontSize: 13, color: 'var(--fg-2)', lineHeight: 1.6, padding: '10px 12px', background: 'rgba(76,111,174,0.06)', borderRadius: 8 }}>
+              <div style={{ fontSize: 13, color: 'var(--fg-2)', lineHeight: 1.6, padding: '10px 12px', background: 'var(--accent-10)', borderRadius: 8, border: '1px solid var(--accent-18)' }}>
                 Upload a <strong>CSV/TSV</strong> and our AI extracts all parts automatically. Attach <strong>PDFs</strong> for extra context.
                 <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg-3)', lineHeight: 1.8 }}>
                   Required columns:<br/>
-                  <span style={{ color: '#D97757', fontWeight: 600 }}>Supplier Country</span> · SKU Code · Description · Supplier<br/>
+                  <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Supplier Country</span> · SKU Code · Description · Supplier<br/>
                   Optional: Quantity · Unit Cost (USD) · HS Code · Lead Time
                 </div>
-                <div style={{ marginTop: 6, fontSize: 11, color: '#D14343' }}>
+                <div style={{ marginTop: 6, fontSize: 11, color: 'var(--danger)' }}>
                   ⚠ <strong>Supplier Country is required</strong> for map arcs and tariff exposure analysis.
                 </div>
               </div>
@@ -328,17 +328,17 @@ function AddProductModal({ onSave, onClose }) {
               <div>
                 <label style={{ ...labelStyle, marginBottom: 8 }}>Materials Spreadsheet (CSV / TSV)</label>
                 <div onClick={() => csvRef.current?.click()} style={{
-                  border: `2px dashed ${csvFile ? '#16a34a' : 'var(--border-1)'}`,
+                  border: `2px dashed ${csvFile ? 'var(--success)' : 'var(--bg-border)'}`,
                   borderRadius: 10, padding: '24px 16px', textAlign: 'center', cursor: 'pointer',
-                  background: csvFile ? 'rgba(22,163,74,0.05)' : 'var(--grey-025)',
+                  background: csvFile ? 'var(--success-10)' : 'var(--bg-elevated)',
                   transition: 'border-color 0.15s',
                 }}>
                   <div style={{ fontSize: 28, marginBottom: 6 }}>{csvFile ? '✅' : '📄'}</div>
-                  <div style={{ fontSize: 13, color: csvFile ? '#16a34a' : 'var(--fg-2)', fontWeight: csvFile ? 600 : 400 }}>
+                  <div style={{ fontSize: 13, color: csvFile ? 'var(--success)' : 'var(--fg-2)', fontWeight: csvFile ? 600 : 400 }}>
                     {csvFile ? csvFile.name : 'Click to choose CSV / TSV'}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 4 }}>
-                    <span style={{ color: '#D97757', fontWeight: 600 }}>Supplier Country*</span> · SKU · Description · Supplier · Cost · HS Code
+                    <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Supplier Country*</span> · SKU · Description · Supplier · Cost · HS Code
                   </div>
                   <input ref={csvRef} type="file" accept=".csv,.tsv" style={{ display: 'none' }}
                     onChange={e => setCsvFile(e.target.files?.[0] || null)} />
@@ -352,12 +352,12 @@ function AddProductModal({ onSave, onClose }) {
               <div>
                 <label style={{ ...labelStyle, marginBottom: 8 }}>Supporting PDFs <span style={{ color: 'var(--fg-3)', fontWeight: 400 }}>(optional)</span></label>
                 <div onClick={() => pdfRef.current?.click()} style={{
-                  border: `2px dashed ${pdfFiles.length ? '#16a34a' : 'var(--border-1)'}`,
+                  border: `2px dashed ${pdfFiles.length ? 'var(--success)' : 'var(--bg-border)'}`,
                   borderRadius: 10, padding: '20px 16px', textAlign: 'center', cursor: 'pointer',
-                  background: pdfFiles.length ? 'rgba(22,163,74,0.05)' : 'var(--grey-025)',
+                  background: pdfFiles.length ? 'var(--success-10)' : 'var(--bg-elevated)',
                 }}>
                   <div style={{ fontSize: 28, marginBottom: 6 }}>{pdfFiles.length ? '✅' : '📑'}</div>
-                  <div style={{ fontSize: 13, color: pdfFiles.length ? '#16a34a' : 'var(--fg-2)', fontWeight: pdfFiles.length ? 600 : 400 }}>
+                  <div style={{ fontSize: 13, color: pdfFiles.length ? 'var(--success)' : 'var(--fg-2)', fontWeight: pdfFiles.length ? 600 : 400 }}>
                     {pdfFiles.length ? `${pdfFiles.length} file${pdfFiles.length > 1 ? 's' : ''} selected` : 'Product sheets, tariff rulings…'}
                   </div>
                   <input ref={pdfRef} type="file" accept=".pdf" multiple style={{ display: 'none' }}
@@ -375,7 +375,7 @@ function AddProductModal({ onSave, onClose }) {
         <div style={{
           padding: '12px 20px', borderTop: '1px solid var(--border-1)', flexShrink: 0,
           display: 'flex', justifyContent: 'flex-end', gap: 8,
-          background: '#F4F4F6', borderRadius: '0 0 16px 16px',
+          background: 'var(--bg-elevated)', borderRadius: '0 0 16px 16px',
         }}>
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
           <Btn onClick={handleSave} disabled={!hasContent && !name.trim()}>
@@ -456,14 +456,14 @@ export function UploadPage({ setPage, loadEvents, loadBoms }) {
       {(doneCount > 0 || errorCount > 0) && (
         <div style={{
           marginBottom: 20, padding: '12px 16px', borderRadius: 10,
-          background: errorCount ? 'rgba(209,67,67,0.07)' : 'rgba(22,163,74,0.07)',
-          border: `1px solid ${errorCount ? 'rgba(209,67,67,0.2)' : 'rgba(22,163,74,0.2)'}`,
+          background: errorCount ? 'var(--danger-dim)' : 'var(--success-dim)',
+          border: `1px solid ${errorCount ? 'rgba(239,68,68,0.25)' : 'rgba(34,197,94,0.25)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div style={{ fontSize: 13 }}>
-            {doneCount > 0 && <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {doneCount} uploaded</span>}
-            {errorCount > 0 && <span style={{ color: '#D14343', fontWeight: 600, marginLeft: 12 }}>✕ {errorCount} failed</span>}
-            {hasTariffEvent && <span style={{ color: '#D97706', marginLeft: 12 }}>⚡ Tariff events detected on your parts</span>}
+            {doneCount > 0 && <span style={{ color: 'var(--success)', fontWeight: 600 }}>✓ {doneCount} uploaded</span>}
+            {errorCount > 0 && <span style={{ color: 'var(--danger)', fontWeight: 600, marginLeft: 12 }}>✕ {errorCount} failed</span>}
+            {hasTariffEvent && <span style={{ color: 'var(--accent)', marginLeft: 12 }}>⚡ Tariff events detected on your parts</span>}
           </div>
           {doneCount > 0 && setPage && (
             <div style={{ display: 'flex', gap: 8 }}>
@@ -494,13 +494,13 @@ export function UploadPage({ setPage, loadEvents, loadBoms }) {
           minHeight: 380, textAlign: 'center',
         }}>
           <div onClick={() => setModalOpen(true)} style={{
-            width: 72, height: 72, borderRadius: 20, background: 'rgba(76,111,174,0.1)',
+            width: 72, height: 72, borderRadius: 20, background: 'var(--accent-10)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 32, marginBottom: 20, cursor: 'pointer',
             transition: 'background 0.15s',
           }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(76,111,174,0.2)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'rgba(76,111,174,0.1)'}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-20)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-10)'}
           >+</div>
           <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Add a product</div>
           <div style={{ fontSize: 14, color: 'var(--fg-3)', maxWidth: 360, lineHeight: 1.6, marginBottom: 28 }}>
@@ -515,7 +515,7 @@ export function UploadPage({ setPage, loadEvents, loadBoms }) {
             {['AI extracts parts from CSV / PDF', 'Auto-detects HS codes', 'Maps tariff exposure', 'Supplier country required for map'].map(t => (
               <span key={t} style={{
                 fontSize: 11, padding: '4px 10px', borderRadius: 20,
-                background: 'var(--grey-025)', border: '1px solid var(--border-1)', color: 'var(--fg-3)',
+                background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)', color: 'var(--text-muted)',
               }}>{t}</span>
             ))}
           </div>
@@ -523,7 +523,7 @@ export function UploadPage({ setPage, loadEvents, loadBoms }) {
       )}
 
       {globalError && (
-        <div style={{ marginTop: 16, color: '#D14343', fontSize: 13 }}>{globalError}</div>
+        <div style={{ marginTop: 16, color: 'var(--danger)', fontSize: 13 }}>{globalError}</div>
       )}
 
       {modalOpen && (
