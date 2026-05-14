@@ -66,30 +66,40 @@ function PipelineProgress({ recId }) {
     .filter(Boolean);
 
   if (ordered.length === 0) return (
-    <div className="body-sm" style={{ padding: 4, color: "var(--fg-3)" }}>
-      Pipeline starting…
+    <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.05em" }}>
+      PIPELINE INITIALIZING…
     </div>
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {ordered.map((s) => {
         const done = s.status === "done";
         const err  = s.status === "error";
         const running = s.status === "running";
         const color = err ? "var(--danger)" : done ? "var(--success)" : "var(--accent)";
-        const icon = err ? "✕" : done ? "✓" : "…";
         return (
-          <div key={s.stage} style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 12 }}>
-            <span style={{ width: 14, textAlign: "center", color, fontWeight: 700, flexShrink: 0 }}>{icon}</span>
-            <span style={{ color: running ? "var(--text-primary)" : done ? "var(--text-secondary)" : "var(--text-muted)", fontWeight: running ? 600 : 400 }}>
+          <div key={s.stage} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{
+              width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+              background: color,
+              boxShadow: running ? `0 0 6px ${color}` : "none",
+            }} />
+            <span style={{
+              fontSize: 12,
+              color: running ? "var(--text-primary)" : done ? "var(--text-secondary)" : "var(--text-muted)",
+              fontWeight: running ? 600 : 400,
+              flex: 1,
+            }}>
               {STAGE_LABELS[s.stage] || s.stage}
             </span>
             {s.detail && (
-              <span style={{ color: "var(--fg-3)", fontSize: 11, fontFamily: "var(--font-mono)" }}>
+              <span style={{ color: "var(--text-muted)", fontSize: 10, fontFamily: "var(--font-mono)" }}>
                 {s.detail}
               </span>
             )}
+            {done && <span style={{ fontSize: 10, color: "var(--success)", fontFamily: "var(--font-mono)" }}>✓</span>}
+            {err && <span style={{ fontSize: 10, color: "var(--danger)", fontFamily: "var(--font-mono)" }}>✕</span>}
           </div>
         );
       })}
@@ -200,13 +210,10 @@ function RecDetail({ recId, onBack }) {
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <Btn variant="ghost" small onClick={onBack}>
-          ← Back
-        </Btn>
-        <div className="h4" style={{ margin: 0 }}>
-          Recommendation
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+        <Btn variant="ghost" small onClick={onBack}>← Back</Btn>
+        <div style={{ width: 1, height: 16, background: 'var(--bg-border)' }} />
+        <span className="eyebrow">Recommendation</span>
         <StatusChip status={rec.status} />
       </div>
 
@@ -242,9 +249,7 @@ function RecDetail({ recId, onBack }) {
 
       {ranked.length > 0 && (
         <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-          <div className="eyebrow" style={{ marginLeft: 4 }}>
-            Ranked Scenarios
-          </div>
+          <span className="eyebrow">Ranked Scenarios</span>
           {ranked.map((s, i) => {
             const st = (s.strategy || s.scenario_type || "").replace("_", " ");
             const sid = s.scenario_id;
@@ -375,8 +380,9 @@ export function RecommendationsPage({ targetRec, setTargetRec }) {
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
-      <div className="h4" style={{ marginBottom: 20 }}>
-        Past Recommendations
+      <div style={{ marginBottom: 24 }}>
+        <span className="eyebrow" style={{ display: 'block', marginBottom: 6 }}>Analysis</span>
+        <div className="h4">Scenarios</div>
       </div>
       {recs.length === 0 ? (
         <Glass>
@@ -385,37 +391,29 @@ export function RecommendationsPage({ targetRec, setTargetRec }) {
           </div>
         </Glass>
       ) : (
-        <Glass>
-          <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+        <Glass padding={0} style={{ overflow: 'hidden' }}>
+          <table className="data-table">
             <thead>
-              <tr style={{ color: "var(--fg-3)" }}>
-                <th style={{ textAlign: "left", padding: "6px 12px" }}>Event</th>
-                <th style={{ textAlign: "left", padding: "6px 12px" }}>Status</th>
-                <th style={{ textAlign: "left", padding: "6px 12px" }}>Created</th>
-                <th style={{ padding: "6px 12px" }}></th>
+              <tr>
+                <th>Event</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {recs.map((r, i) => (
-                <tr key={i} style={{ borderTop: "1px solid var(--bg-border)" }}>
-                  <td
-                    style={{
-                      padding: "8px 12px",
-                      maxWidth: 300,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                <tr key={i}>
+                  <td style={{ maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.event_id}
                   </td>
-                  <td style={{ padding: "8px 12px" }}>
+                  <td>
                     <StatusChip status={r.status} />
                   </td>
-                  <td style={{ padding: "8px 12px", color: "var(--fg-3)", fontSize: 12 }}>
+                  <td style={{ color: "var(--fg-3)", fontSize: 11, fontFamily: 'var(--font-mono)' }}>
                     {r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
                   </td>
-                  <td style={{ padding: "8px 12px" }}>
+                  <td>
                     <Btn small onClick={() => setSelected(r.id)}>
                       View
                     </Btn>

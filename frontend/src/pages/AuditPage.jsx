@@ -5,34 +5,51 @@ import { api } from "../lib/api";
 export function AuditPage() {
   const [runs, setRuns] = useState([]);
 
-  useEffect(()=>{ 
-    api('GET','/audit').then(d => setRuns(d || [])).catch(()=>{}); 
+  useEffect(() => {
+    api('GET', '/audit').then(d => setRuns(d || [])).catch(() => {});
   }, []);
 
   return (
-    <div style={{maxWidth:900, margin:'0 auto'}}>
-      <div className="h4" style={{marginBottom:20}}>Agent Audit Log</div>
-      {runs.length === 0
-        ? <div className="body-sm">No agent runs recorded yet.</div>
-        : <Glass>
-            <table style={{fontSize:13}}>
-              <thead><tr style={{color:'var(--fg-3)'}}>
-                <th style={{textAlign:'left',padding:'6px 12px'}}>Agent</th>
-                <th style={{textAlign:'left',padding:'6px 12px'}}>Model</th>
-                <th style={{textAlign:'left',padding:'6px 12px'}}>Started</th>
-                <th style={{textAlign:'left',padding:'6px 12px'}}>Latency</th>
-              </tr></thead>
-              <tbody>{runs.map((r,i)=>(
-                <tr key={i} style={{borderTop:'1px solid var(--border-1)'}}>
-                  <td style={{padding:'8px 12px'}}>{r.agent_name}</td>
-                  <td style={{padding:'8px 12px', fontFamily:'var(--font-mono)', fontSize:12}}>{r.model}</td>
-                  <td style={{padding:'8px 12px', fontFamily:'var(--font-mono)', fontSize:12}}>{r.started_at?.slice(0,19)}</td>
-                  <td style={{padding:'8px 12px'}}>{r.latency_ms != null ? `${r.latency_ms}ms` : '—'}</td>
+    <div style={{ maxWidth: 860, margin: '0 auto' }}>
+      <div style={{ marginBottom: 28 }}>
+        <span className="eyebrow" style={{ display: 'block', marginBottom: 6 }}>System</span>
+        <div className="h4">Agent Audit Log</div>
+      </div>
+
+      {runs.length === 0 ? (
+        <Glass padding={24}>
+          <div className="body-sm">No agent runs recorded yet.</div>
+        </Glass>
+      ) : (
+        <Glass padding={0} style={{ overflow: 'hidden' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Agent</th>
+                <th>Model</th>
+                <th>Started</th>
+                <th>Latency</th>
+              </tr>
+            </thead>
+            <tbody>
+              {runs.map((r, i) => (
+                <tr key={i}>
+                  <td style={{ fontWeight: 500 }}>{r.agent_name}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
+                    {r.model}
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>
+                    {r.started_at?.slice(0, 19).replace('T', ' ')}
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
+                    {r.latency_ms != null ? `${r.latency_ms}ms` : '—'}
+                  </td>
                 </tr>
-              ))}</tbody>
-            </table>
-          </Glass>
-      }
+              ))}
+            </tbody>
+          </table>
+        </Glass>
+      )}
     </div>
   );
 }

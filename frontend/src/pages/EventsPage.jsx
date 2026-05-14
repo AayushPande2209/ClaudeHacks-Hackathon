@@ -39,16 +39,22 @@ export function EventsPage({ events: eventsProp, loadEvents, setPage, setTargetR
   };
 
   return (
-    <div style={{maxWidth:960, margin:'0 auto'}}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div className="h4" style={{ margin: 0 }}>Tariff Events</div>
+    <div style={{ maxWidth: 880, margin: '0 auto' }}>
+      {/* Page header */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div>
+          <span className="eyebrow" style={{ display: 'block', marginBottom: 6 }}>Tariff Intelligence</span>
+          <div className="h4">Signals</div>
+        </div>
         {boms.length > 1 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="body-sm" style={{ color: 'var(--fg-3)' }}>BOM to analyze:</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>BOM:</span>
             <select
               style={{
-                padding: '4px 8px', borderRadius: 6, border: '1px solid var(--bg-border)',
-                background: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 13,
+                padding: '6px 10px', borderRadius: 'var(--radius-2)',
+                border: '1px solid var(--bg-border)',
+                background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                fontSize: 12, fontFamily: 'var(--font-mono)',
               }}
               onChange={(e) => {
                 const b = boms.find(x => x.id === e.target.value);
@@ -61,106 +67,125 @@ export function EventsPage({ events: eventsProp, loadEvents, setPage, setTargetR
         )}
       </div>
 
+      {/* Active map filter banner */}
       {activeMapEvent && (
         <div style={{
-          marginBottom: 16, padding: '10px 16px', borderRadius: 10,
-          background: 'var(--danger-dim)', border: '1px solid var(--danger-25)',
+          marginBottom: 16, padding: '10px 14px',
+          borderRadius: 'var(--radius-2)',
+          background: 'var(--danger-dim)',
+          border: '1px solid var(--danger-25)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <div style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 500 }}>
-            🗺 Map filtered by: <strong>{activeMapEvent.title}</strong>
+          <div style={{ fontSize: 12, color: 'var(--danger)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
+            MAP FILTER · <strong>{activeMapEvent.title}</strong>
           </div>
-          <Btn small variant="ghost" onClick={() => setActiveMapEvent(null)}>Clear Filter</Btn>
+          <Btn small variant="ghost" onClick={() => setActiveMapEvent(null)}>Clear</Btn>
         </div>
       )}
 
-      {events.length === 0
-        ? <div className="body-sm">No events yet. Upload a BOM to auto-generate events, or run the signal monitor poll.</div>
-        : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {events.map((ev, i) => {
-              const isActive = activeMapEvent?.id === ev.id;
-              const threat = ev.threat_level || 'MEDIUM';
-              const color = threatColor(threat);
-              const countries = [...new Set([
-                ...(ev.jurisdictions || []),
-                ...(ev.affected_countries_hint || []),
-              ])].slice(0, 4);
+      {events.length === 0 ? (
+        <Glass padding={24}>
+          <div className="body-sm">No events yet. Upload a BOM to auto-generate events.</div>
+        </Glass>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {events.map((ev, i) => {
+            const isActive = activeMapEvent?.id === ev.id;
+            const threat = ev.threat_level || 'MEDIUM';
+            const color = threatColor(threat);
+            const countries = [...new Set([
+              ...(ev.jurisdictions || []),
+              ...(ev.affected_countries_hint || []),
+            ])].slice(0, 4);
 
-              return (
-                <Glass
-                  key={i}
-                  padding={16}
-                  style={{
-                    borderLeft: isActive ? `3px solid ${color}` : '3px solid transparent',
-                    transition: 'border-color 0.2s',
-                    background: isActive ? `rgba(209,67,67,0.04)` : undefined,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    {/* Left: info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+            return (
+              <Glass
+                key={i}
+                padding={14}
+                style={{
+                  borderLeft: `3px solid ${isActive ? color : 'var(--bg-border)'}`,
+                  borderRadius: 'var(--radius-2)',
+                  transition: 'border-color 0.15s ease',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7, flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600,
+                        letterSpacing: '0.1em', textTransform: 'uppercase',
+                        padding: '2px 7px', borderRadius: 'var(--radius-1)',
+                        background: `${color}18`, color, border: `1px solid ${color}25`,
+                      }}>{threat}</span>
+                      <span style={{
+                        fontFamily: 'var(--font-mono)', fontSize: 10,
+                        color: 'var(--text-muted)', letterSpacing: '0.04em',
+                      }}>{ev.source}</span>
+                      {isActive && (
                         <span style={{
-                          fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)',
-                          padding: '2px 8px', borderRadius: 6,
-                          background: `${color}18`, color,
-                        }}>{threat}</span>
-                        <Chip bg="var(--bg-elevated)" fg="var(--text-muted)">{ev.source}</Chip>
-                        {isActive && (
-                          <span style={{
-                            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
-                            background: 'var(--danger-dim)', color: 'var(--danger)',
-                            fontFamily: 'var(--font-mono)',
-                          }}>MAP ACTIVE</span>
-                        )}
-                      </div>
-                      <div style={{ fontWeight: 600, fontSize: 14, lineHeight: '20px', marginBottom: 4 }}>
-                        {ev.title}
-                      </div>
-                      {ev.description && (
-                        <div style={{ fontSize: 12, color: 'var(--fg-2)', lineHeight: '17px', marginBottom: 6,
-                          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                          {ev.description}
-                        </div>
+                          fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600,
+                          letterSpacing: '0.1em', padding: '2px 7px',
+                          borderRadius: 'var(--radius-1)',
+                          background: 'var(--danger-dim)', color: 'var(--danger)',
+                        }}>PINNED</span>
                       )}
-                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                        {(ev.hs_codes || []).length > 0 && (
-                          <span style={{ fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>
-                            HS: {ev.hs_codes.slice(0, 3).join(', ')}
-                          </span>
-                        )}
-                        {countries.length > 0 && (
-                          <span style={{ fontSize: 11, color: 'var(--fg-3)' }}>
-                            🌍 {countries.join(', ')}
-                          </span>
-                        )}
-                      </div>
                     </div>
-
-                    {/* Right: action buttons */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
-                      <Btn small onClick={() => analyze(ev)}>Analyze</Btn>
-                      <button
-                        onClick={() => toggleMapImpact(ev)}
-                        style={{
-                          padding: '5px 12px', borderRadius: 8, border: `1px solid ${isActive ? color : 'var(--bg-border)'}`,
-                          background: isActive ? `${color}18` : 'var(--bg-elevated)',
-                          color: isActive ? color : 'var(--text-muted)',
-                          fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                          transition: 'all 0.15s', whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {isActive ? '✕ Unpin Map' : '🗺 Map Impact'}
-                      </button>
+                    <div style={{
+                      fontWeight: 600, fontSize: 13, lineHeight: 1.4,
+                      marginBottom: 5, letterSpacing: '-0.01em',
+                    }}>
+                      {ev.title}
+                    </div>
+                    {ev.description && (
+                      <div style={{
+                        fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55,
+                        marginBottom: 7,
+                        display: '-webkit-box', WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      }}>
+                        {ev.description}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {(ev.hs_codes || []).length > 0 && (
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                          HS {ev.hs_codes.slice(0, 3).join(' · ')}
+                        </span>
+                      )}
+                      {countries.length > 0 && (
+                        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                          {countries.join(' · ')}
+                        </span>
+                      )}
                     </div>
                   </div>
-                </Glass>
-              );
-            })}
-          </div>
-        )
-      }
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                    <Btn small onClick={() => analyze(ev)}>Analyze</Btn>
+                    <button
+                      onClick={() => toggleMapImpact(ev)}
+                      style={{
+                        padding: '5px 11px',
+                        borderRadius: 'var(--radius-2)',
+                        border: `1px solid ${isActive ? color : 'var(--bg-border)'}`,
+                        background: isActive ? `${color}12` : 'transparent',
+                        color: isActive ? color : 'var(--text-muted)',
+                        fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                        transition: 'all 0.15s ease', whiteSpace: 'nowrap',
+                        fontFamily: 'var(--font-sans)',
+                      }}
+                    >
+                      {isActive ? 'Unpin' : 'Map Impact'}
+                    </button>
+                  </div>
+                </div>
+              </Glass>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

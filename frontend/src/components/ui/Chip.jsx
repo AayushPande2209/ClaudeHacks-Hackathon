@@ -4,17 +4,19 @@ export function Chip({ children, bg, fg }) {
   return (
     <span style={{
       fontFamily: 'var(--font-mono)',
-      fontSize: 11,
+      fontSize: 10,
       fontWeight: 500,
-      letterSpacing: '.06em',
-      padding: '3px 10px',
-      borderRadius: 999,
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase',
+      padding: '3px 8px',
+      borderRadius: 'var(--radius-1)',
       background: bg,
       color: fg,
       display: 'inline-flex',
       alignItems: 'center',
-      gap: 6,
+      gap: 5,
       whiteSpace: 'nowrap',
+      lineHeight: 1.4,
     }}>
       {children}
     </span>
@@ -23,14 +25,14 @@ export function Chip({ children, bg, fg }) {
 
 export function StatusChip({ status }) {
   const map = {
-    running:           { bg: 'rgba(34,197,94,0.1)',  fg: '#22c55e', label: 'RUNNING' },
-    complete:          { bg: 'rgba(34,197,94,0.1)',  fg: '#22c55e', label: 'COMPLETE' },
-    awaiting_approval: { bg: 'var(--accent-dim)',      fg: 'var(--accent)', label: 'AWAITING APPROVAL' },
-    approved:          { bg: 'rgba(34,197,94,0.1)',  fg: '#22c55e', label: 'APPROVED' },
-    edited:            { bg: 'var(--accent-dim)',      fg: 'var(--accent)', label: 'EDITED' },
-    rejected:          { bg: '#2a1a1a',              fg: '#ef4444', label: 'REJECTED' },
-    error:             { bg: '#2a1a1a',              fg: '#ef4444', label: 'ERROR' },
+    running:           { bg: 'var(--success-10)',  fg: 'var(--success)', label: 'RUNNING' },
+    complete:          { bg: 'var(--success-10)',  fg: 'var(--success)', label: 'COMPLETE' },
+    awaiting_approval: { bg: 'var(--accent-dim)',  fg: 'var(--accent)',  label: 'PENDING REVIEW' },
+    approved:          { bg: 'var(--success-10)',  fg: 'var(--success)', label: 'APPROVED' },
+    edited:            { bg: 'var(--accent-dim)',  fg: 'var(--accent)',  label: 'EDITED' },
+    rejected:          { bg: 'var(--danger-dim)',  fg: 'var(--danger)',  label: 'REJECTED' },
+    error:             { bg: 'var(--danger-dim)',  fg: 'var(--danger)',  label: 'ERROR' },
   };
-  const s = map[status] || { bg: 'var(--bg-border)', fg: 'var(--fg-3)', label: status };
+  const s = map[status] || { bg: 'var(--bg-elevated)', fg: 'var(--text-muted)', label: status?.toUpperCase() || '—' };
   return <Chip bg={s.bg} fg={s.fg}>{s.label}</Chip>;
 }

@@ -73,7 +73,7 @@ export default function App() {
       )}
 
       {page !== 'dashboard' && (
-        <main style={{padding:'40px', flex:1, margin:'0 auto', width:'100%', maxWidth:'1200px', overflowY:'auto'}}>
+        <main style={{padding:'32px 40px', flex:1, margin:'0 auto', width:'100%', maxWidth:'1100px', overflowY:'auto'}}>
           {page === 'company' && (
             <UploadPage setPage={navigate} loadEvents={loadEvents} loadBoms={loadBoms} />
           )}

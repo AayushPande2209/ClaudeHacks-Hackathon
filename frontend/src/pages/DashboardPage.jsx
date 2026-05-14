@@ -126,11 +126,14 @@ function ProductsPanel({ boms, loadBoms, setPage }) {
   return (
     <div className="left-area" style={{display:'flex',flexDirection:'column',overflow:'hidden'}}>
       {/* Header */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,flexShrink:0}}>
-        <div className="eyebrow">Products <span style={{color:'var(--fg-3)',fontWeight:400}}>({localBoms.length})</span></div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexShrink:0,paddingRight:16}}>
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          <span className="eyebrow">Products</span>
+          <span style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-muted)'}}>{localBoms.length} tracked</span>
+        </div>
         <button onClick={()=>setPage('company')} style={{
-          fontSize:11,padding:'4px 10px',borderRadius:8,border:'1px solid var(--accent)',
-          background:'var(--accent-dim)',color:'var(--accent)',cursor:'pointer',fontWeight:600,
+          fontSize:11,padding:'5px 11px',borderRadius:'var(--radius-2)',border:'1px solid var(--accent-18)',
+          background:'var(--accent-dim)',color:'var(--accent)',cursor:'pointer',fontWeight:600,letterSpacing:'0.02em',
         }}>+ Add</button>
       </div>
 
@@ -150,14 +153,15 @@ function ProductsPanel({ boms, loadBoms, setPage }) {
             <Glass key={b.id} padding={12} style={{cursor:'pointer',flexShrink:0}}
               onClick={() => setExpanded(isOpen ? null : b.id)}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{width:34,height:34,borderRadius:8,background:'var(--accent-10)',
-                  display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                  <LIcon name="box" size={16} color="var(--accent)"/>
+                <div style={{width:30,height:30,borderRadius:'var(--radius-2)',background:'var(--accent-10)',
+                  display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
+                  border:'1px solid var(--accent-18)'}}>
+                  <LIcon name="layers" size={13} color="var(--accent)"/>
                 </div>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontWeight:600,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{b.name||`Product ${i+1}`}</div>
-                  <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--fg-3)',marginTop:1}}>
-                    {rows.length} SKU{rows.length!==1?'s':''} · Live
+                  <div style={{fontWeight:600,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',letterSpacing:'-0.01em'}}>{b.name||`Product ${i+1}`}</div>
+                  <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-muted)',marginTop:2}}>
+                    {rows.length} SKU{rows.length!==1?'s':''}
                   </div>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:4}} onClick={e=>e.stopPropagation()}>
@@ -419,50 +423,56 @@ function GoodIdeaPanel({ boms }) {
   return (
     <div className="right-area" style={{ display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' }}>
       {/* Header */}
-      <div style={{ paddingBottom: 10, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div className="eyebrow">Good Idea</div>
-            {highCount > 0 && (
-              <span style={{ background: 'var(--danger)', color: '#fff', borderRadius: 10,
-                fontSize: 10, fontWeight: 700, padding: '1px 7px' }}>
-                {highCount} HIGH
-              </span>
+      <div style={{ paddingBottom: 12, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="eyebrow">Intelligence Feed</span>
+              {highCount > 0 && (
+                <span style={{
+                  background: 'var(--danger-dim)', color: 'var(--danger)',
+                  borderRadius: 'var(--radius-1)', fontFamily: 'var(--font-mono)',
+                  fontSize: 9, fontWeight: 600, padding: '2px 6px', letterSpacing: '0.08em',
+                }}>
+                  {highCount} HIGH
+                </span>
+              )}
+            </div>
+            {lastRefresh && (
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3, fontFamily: 'var(--font-mono)' }}>
+                {lastRefresh.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+              </div>
             )}
           </div>
           <button
             onClick={() => load(true)}
             disabled={loading}
             style={{
-              background: loading ? 'var(--bg-border)' : 'var(--accent)',
-              border: 'none', borderRadius: 8, cursor: loading ? 'default' : 'pointer',
-              color: 'var(--accent-text)', fontSize: 11, fontWeight: 600,
+              background: 'none', border: '1px solid var(--bg-border)',
+              borderRadius: 'var(--radius-2)', cursor: loading ? 'default' : 'pointer',
+              color: 'var(--text-muted)', fontSize: 11, fontWeight: 500,
               display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
-              opacity: loading ? 0.6 : 1,
+              opacity: loading ? 0.5 : 1,
             }}
           >
-            <LIcon name="refresh-cw" size={11} color="var(--accent-text)"/>
-            {loading ? 'Loading…' : 'Refresh Feed'}
+            <LIcon name="refresh-cw" size={11} color="var(--text-muted)"/>
+            {loading ? 'Loading…' : 'Refresh'}
           </button>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 2, background: 'var(--bg-elevated)', borderRadius: 'var(--radius-2)', padding: 3 }}>
           {[['all','All'], ['high','High Risk'], ['formal','Formal']].map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)} style={{
-              fontSize: 11, padding: '4px 10px', borderRadius: 12, border: 'none', cursor: 'pointer',
-              background: tab === key ? 'var(--accent)' : 'var(--bg-border)',
-              color: tab === key ? 'var(--accent-text)' : 'var(--fg-2)',
+              flex: 1, fontSize: 11, padding: '5px 0', borderRadius: 6, border: 'none', cursor: 'pointer',
+              background: tab === key ? 'var(--bg-surface)' : 'transparent',
+              color: tab === key ? 'var(--text-primary)' : 'var(--text-muted)',
               fontWeight: tab === key ? 600 : 400,
+              boxShadow: tab === key ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
+              fontFamily: 'var(--font-sans)',
             }}>{label}</button>
           ))}
         </div>
-
-        {lastRefresh && (
-          <div style={{ fontSize: 9, color: 'var(--fg-3)', marginTop: 5, fontFamily: 'var(--font-mono)' }}>
-            Updated {lastRefresh.toLocaleTimeString()} · Trade & tariff intelligence
-          </div>
-        )}
       </div>
 
       {/* Scrollable list */}
@@ -499,32 +509,35 @@ export function DashboardPage({ boms, events, activeMapEvent, setActiveMapEvent,
       <ProductsPanel boms={boms} loadBoms={loadBoms} setPage={setPage} />
       <div className="center-area">
         <Globe3D boms={boms} activeMapEvent={activeMapEvent} />
-        <div style={{position:'absolute', top:30, left:40, pointerEvents:'none'}}>
-          <div className="h4" style={{letterSpacing:'-0.02em'}}>Global Supply Matrix</div>
-          <div style={{marginTop:8, display:'flex', flexDirection:'column', gap:6}}>
-            <div className="body-sm" style={{display:'flex', alignItems:'center', gap:8}}>
-              <svg width="28" height="8" style={{flexShrink:0}}>
-                <line x1="0" y1="4" x2="28" y2="4" stroke="var(--sev-critical)" strokeWidth="2" strokeDasharray="5,3"/>
-              </svg>
-              <span>High Risk Corridor</span>
-            </div>
-            <div className="body-sm" style={{display:'flex', alignItems:'center', gap:8}}>
-              <svg width="28" height="8" style={{flexShrink:0}}>
-                <line x1="0" y1="4" x2="28" y2="4" stroke="var(--domain-reshore)" strokeWidth="2" strokeDasharray="5,3"/>
-              </svg>
-              <span>Active Supplier</span>
-            </div>
-            <div className="body-sm" style={{display:'flex', alignItems:'center', gap:8}}>
-              <span style={{width:10,height:10,borderRadius:5,background:'var(--danger-35)',flexShrink:0,display:'inline-block'}}/>
-              <span>Tariff-Exposed Region</span>
-            </div>
-            <div className="body-sm" style={{display:'flex', alignItems:'center', gap:8}}>
-              <span style={{width:10,height:10,borderRadius:5,background:'var(--accent-25)',flexShrink:0,display:'inline-block'}}/>
-              <span>Supplier Region</span>
-            </div>
-          </div>
-          <div className="body-sm" style={{marginTop:10, color:'var(--fg-3)', fontSize:10}}>
-            Hover corridors for tariff details
+        <div style={{
+          position:'absolute', top:20, left:20, pointerEvents:'none',
+          background:'color-mix(in srgb, var(--bg-surface) 80%, transparent)',
+          border:'1px solid var(--bg-border)',
+          borderRadius:'var(--radius-3)',
+          padding:'12px 14px',
+          backdropFilter:'blur(8px)',
+          WebkitBackdropFilter:'blur(8px)',
+        }}>
+          <div style={{fontFamily:'var(--font-display)',fontSize:16,letterSpacing:'-0.01em',color:'var(--text-primary)',marginBottom:10}}>Supply Matrix</div>
+          <div style={{display:'flex', flexDirection:'column', gap:7}}>
+            {[
+              { color:'var(--sev-critical)', dash:true, label:'High Risk Corridor' },
+              { color:'var(--accent)',        dash:true, label:'Active Supplier' },
+              { color:'var(--danger-35)',     dot:true,  label:'Tariff-Exposed' },
+              { color:'var(--accent-25)',     dot:true,  label:'Supplier Region' },
+            ].map(({ color, dash, dot, label }) => (
+              <div key={label} style={{display:'flex', alignItems:'center', gap:8}}>
+                {dash && (
+                  <svg width="22" height="6" style={{flexShrink:0}}>
+                    <line x1="0" y1="3" x2="22" y2="3" stroke={color} strokeWidth="1.5" strokeDasharray="4,2"/>
+                  </svg>
+                )}
+                {dot && (
+                  <span style={{width:8,height:8,borderRadius:'50%',background:color,flexShrink:0,display:'inline-block'}}/>
+                )}
+                <span style={{fontSize:11,color:'var(--text-secondary)'}}>{label}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
