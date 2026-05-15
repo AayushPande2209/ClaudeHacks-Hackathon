@@ -9,7 +9,7 @@ const TABS = [
   { id: 'report',    label: 'Audit',     icon: 'scroll' },
 ];
 
-export function AppHeader({ page, setPage, apiOk }) {
+export function AppHeader({ page, setPage }) {
   return (
     <header
       className="header-area"
@@ -112,17 +112,17 @@ export function AppHeader({ page, setPage, apiOk }) {
           fontFamily: 'var(--font-mono)',
           fontWeight: 400,
           letterSpacing: '0.06em',
-          color: apiOk ? 'var(--success)' : 'var(--danger)',
+          color: 'var(--text-muted)',
         }}>
           <span style={{
             width: 5,
             height: 5,
             borderRadius: '50%',
-            background: apiOk ? 'var(--success)' : 'var(--danger)',
-            boxShadow: apiOk ? '0 0 8px var(--success)' : 'none',
+            background: 'var(--accent)',
+            boxShadow: '0 0 8px color-mix(in srgb, var(--accent) 60%, transparent)',
             flexShrink: 0,
           }} />
-          {apiOk ? 'LIVE' : 'OFFLINE'}
+          READY
         </div>
       </div>
     </header>

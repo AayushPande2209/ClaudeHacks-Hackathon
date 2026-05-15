@@ -34,75 +34,25 @@ function SupplierRow({ row }) {
   );
 }
 
-const STAGE_LABELS = {
-  signal_monitor:   "Enriching tariff signal",
-  bom_mapper:       "Mapping BOM to HS codes",
-  scenario_modeler: "Modeling 3 scenarios",
-  synthesizer:      "Ranking scenarios",
-  pipeline:         "Pipeline",
-};
-
-function PipelineProgress({ recId }) {
-  const [steps, setSteps] = useState([]);
-
-  useEffect(() => {
-    let active = true;
-    const poll = async () => {
-      try {
-        const d = await api("GET", `/recommendations/${recId}/progress`);
-        if (active) setSteps(d.progress || []);
-      } catch { /* ignore */ }
-    };
-    poll();
-    const t = setInterval(poll, 2000);
-    return () => { active = false; clearInterval(t); };
-  }, [recId]);
-
-  // Deduplicate: keep last entry per stage
-  const byStage = {};
-  steps.forEach(s => { byStage[s.stage] = s; });
-  const ordered = ["signal_monitor", "bom_mapper", "scenario_modeler", "synthesizer"]
-    .map(k => byStage[k])
-    .filter(Boolean);
-
-  if (ordered.length === 0) return (
-    <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)", letterSpacing: "0.05em" }}>
-      PIPELINE INITIALIZING…
-    </div>
-  );
-
+function RunningAnalysisNotice() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {ordered.map((s) => {
-        const done = s.status === "done";
-        const err  = s.status === "error";
-        const running = s.status === "running";
-        const color = err ? "var(--danger)" : done ? "var(--success)" : "var(--accent)";
-        return (
-          <div key={s.stage} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-              background: color,
-              boxShadow: running ? `0 0 6px ${color}` : "none",
-            }} />
-            <span style={{
-              fontSize: 12,
-              color: running ? "var(--text-primary)" : done ? "var(--text-secondary)" : "var(--text-muted)",
-              fontWeight: running ? 600 : 400,
-              flex: 1,
-            }}>
-              {STAGE_LABELS[s.stage] || s.stage}
-            </span>
-            {s.detail && (
-              <span style={{ color: "var(--text-muted)", fontSize: 10, fontFamily: "var(--font-mono)" }}>
-                {s.detail}
-              </span>
-            )}
-            {done && <span style={{ fontSize: 10, color: "var(--success)", fontFamily: "var(--font-mono)" }}>✓</span>}
-            {err && <span style={{ fontSize: 10, color: "var(--danger)", fontFamily: "var(--font-mono)" }}>✕</span>}
-          </div>
-        );
-      })}
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          flexShrink: 0,
+          background: "var(--accent)",
+          boxShadow: "0 0 6px var(--accent)",
+        }} />
+        <span style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 600 }}>
+          Analysis running
+        </span>
+      </div>
+      <span style={{ color: "var(--text-muted)", fontSize: 11, fontFamily: "var(--font-mono)" }}>
+        Polling recommendation status until results are ready…
+      </span>
     </div>
   );
 }
@@ -199,7 +149,7 @@ function RecDetail({ recId, onBack }) {
   if (loading && !rec) {
     return (
       <Glass>
-        <PipelineProgress recId={recId} />
+        <RunningAnalysisNotice />
       </Glass>
     );
   }
@@ -219,7 +169,7 @@ function RecDetail({ recId, onBack }) {
 
       {rec.status === "running" && (
         <Glass style={{ marginBottom: 16 }}>
-          <PipelineProgress recId={recId} />
+          <RunningAnalysisNotice />
         </Glass>
       )}
 

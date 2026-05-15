@@ -397,7 +397,7 @@ function GoodIdeaPanel({ boms }) {
       const d = await api('GET', url);
       setArticles(d.articles || []);
       setLastRefresh(new Date());
-    } catch (e) {
+    } catch {
       setError('Could not load news feed.');
     } finally {
       setLoading(false);
@@ -406,8 +406,6 @@ function GoodIdeaPanel({ boms }) {
 
   useEffect(() => {
     load();
-    const t = setInterval(() => load(), 5 * 60 * 1000); // refresh every 5 min
-    return () => clearInterval(t);
   }, [load]);
 
   const highArticles = articles.filter(a => a.risk_level === 'HIGH');
@@ -503,7 +501,7 @@ function GoodIdeaPanel({ boms }) {
   );
 }
 
-export function DashboardPage({ boms, events, activeMapEvent, setActiveMapEvent, loadBoms, setPage }) {
+export function DashboardPage({ boms, activeMapEvent, loadBoms, setPage }) {
   return (
     <>
       <ProductsPanel boms={boms} loadBoms={loadBoms} setPage={setPage} />

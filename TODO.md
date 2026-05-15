@@ -2,124 +2,62 @@
 
 ---
 
-## OPEN — Blocking (server won't run correctly without these)
+## OPEN — High Priority
 
-### Environment / startup
+### Remove useless GET traffic
 
-- [x] Move `load_dotenv()` (and the `from dotenv import load_dotenv` import) to the very top of `src/api.py`, before any other import that reads env vars — currently it lives only in `main.py` which is never executed when uvicorn runs `uvicorn api:app`; without this fix `GROQ_API_KEY`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` are all `None` at runtime — Owner: Builder — Priority: high
-- [x] In `frontend/vite.config.js` change the dev server port from `3000` to `5173` (Vite's default), or remove the explicit port entirely — the proxy config only applies when Vite runs on port 3000, but Vite is binding to 5173, so all `/api/*` calls hit the Vite static server instead of FastAPI → 502 — Owner: Builder — Priority: high
+- [ ] Remove `GET /api/v1/recommendations/{rec_id}/progress` polling from `frontend/src/pages/RecommendationsPage.jsx` — this 2-second polling is only used for the cosmetic live stage indicator; the page already polls `GET /api/v1/recommendations/{rec_id}` for the real analysis state and results — Owner: Builder — Priority: high
+- [ ] Remove the automatic 5-minute `GET /api/v1/news` refresh interval from `frontend/src/pages/DashboardPage.jsx` — keep the initial fetch or convert it to a manual refresh button so the backend is not hit repeatedly for non-essential news updates — Owner: Builder — Priority: high
+- [ ] Remove the fallback `GET /api/v1/events` call in `frontend/src/pages/EventsPage.jsx` — `frontend/src/App.jsx` already loads events and passes them into the page, so this extra fetch is redundant in the current SPA flow — Owner: Builder — Priority: high
+- [ ] Remove any remaining startup `GET /api/v1/health` call if it still exists in the active branch — it is only used for a liveness badge and is safe to drop if Fly health checks already cover backend availability — Owner: Builder — Priority: high
 
-### HITL Gate — complete the removal (blocks clean startup)
+### GET requests that should stay
 
-- [x] Delete `src/agents/hitl_gate.py` entirely — Owner: Builder — Priority: high
-- [x] In `src/agents/orchestrator.py`: remove Stage 4 `HITLGateAgent` import and call; pipeline now ends after Orchestrator ranking — Owner: Builder — Priority: high
-- [x] In `src/pipeline.py`: remove `from agents.hitl_gate import HITLGateAgent` (line 16) and all remaining HITL references; pipeline ends at scenario ranking — Owner: Builder — Priority: high
-- [x] In `src/api.py`: remove `POST /api/v1/recommendations/{rec_id}/approve` and `POST /api/v1/recommendations/{rec_id}/reject` route handlers — Owner: Builder — Priority: high
-- [x] Write Supabase migration `db/migrations/002_drop_hitl_columns.sql` to drop `status` and `approved_at` from the `recommendations` table — Owner: Builder — Priority: high
+- [ ] Keep `GET /api/v1/events` and `GET /api/v1/boms` in `frontend/src/App.jsx` unless the app state-loading flow is redesigned — these are the primary bootstrap requests for the main UI — Owner: Builder — Priority: med
+- [ ] Keep `GET /api/v1/boms` in `frontend/src/pages/EventsPage.jsx` unless BOM data is passed down from `App.jsx` — this request is currently needed so the page can choose a BOM for event analysis — Owner: Builder — Priority: med
+- [ ] Keep `GET /api/v1/recommendations/{rec_id}` polling in `frontend/src/pages/RecommendationsPage.jsx` unless it is replaced with SSE/WebSockets — this is the request that actually updates analysis status and results while a recommendation is running — Owner: Builder — Priority: med
+- [ ] Keep `GET /api/v1/scenarios/{scenario_id}` polling after scenario approval unless supplier search completion is delivered another way — this request is currently how approved scenarios receive supplier results — Owner: Builder — Priority: med
+- [ ] Keep `GET /api/v1/audit` only if the Audit page remains a supported feature; if the page is not needed, remove both the route usage and the tab together rather than treating it as silent background traffic — Owner: Builder — Priority: med
 
----
+### Recommendation flow + status model
 
-## OPEN — Must Fix
+- [ ] Unify recommendation statuses across backend and frontend — the UI still contains `awaiting_approval`, `approved`, and `rejected` branches, but the active backend flow mainly returns `running`, `complete`, and `error`; either implement the richer state machine end-to-end or simplify the frontend to match the current API — Owner: Builder — Priority: high
+- [ ] Decide whether scenario approval should change recommendation status — `POST /api/v1/scenarios/{scenario_id}/approve` marks a scenario as chosen, but does not update the parent recommendation record to an approval-specific status for the UI/audit trail — Owner: Builder — Priority: high
 
-### BOM Mapper — live API wiring (broken despite [x] status)
+### API consistency
 
-- [x] In `src/agents/bom_mapper.py` inside `_enrich_missing_hs_codes()` (lines ~165–185): replace the placeholder comment with a real call to `_census_schedule_b_lookup(row["description"])` → if result is not None, call `_usitc_hts_lookup(result.hs_code)` → write the resolved HS code back to the row dict and log the result; handle None returns from either step gracefully (leave hs_code as-is and continue) — Owner: Builder — Priority: high
-- [x] Verify that `_census_schedule_b_lookup()` and `_usitc_hts_lookup()` exceptions are logged (not silently swallowed) — currently both are wrapped in bare `except` that return `None` with no log entry; add a `store.log_agent_run()` call on exception so failures are visible in the audit trail — Owner: Builder — Priority: high
+- [ ] Replace direct `fetch('/api/v1/...')` calls in the frontend with the shared `api()` helper (or equivalent shared base-URL utility) so deployments using `VITE_API_BASE_URL` do not break edit/delete/upload actions — affected spots include `frontend/src/pages/DashboardPage.jsx` and `frontend/src/pages/UploadPage.jsx` — Owner: Builder — Priority: high
+- [ ] Add a shared helper for multipart/form-data uploads so file uploads use the same base URL logic as JSON API calls without duplicating fetch behavior — Owner: Builder — Priority: high
 
-### Reviewer Fixes — R1
+### Signal Monitor cleanup
 
-- [x] **Issue 1** — Add `get_profile(user_id: str) -> dict | None` to `SupabaseStore` in `src/db/supabase_store.py` querying `business_profiles` where `user_id` matches — Owner: Builder — Priority: high
-- [x] **Issue 1** — In `src/utils/context_builder.py`: replace the `hasattr(store, "_supabase_profile")` branch with a direct call to `store.get_profile(user_id)`; handle `None` gracefully (return a minimal context block with "No business profile found") — Owner: Builder — Priority: high
-- [x] **Issue 2** — Add `pdfplumber` to `requirements.txt` as a hard dependency; in `src/data/bom_loader.py` remove the `except ImportError: os.system(...)` block entirely — Owner: Builder — Priority: high
-- [x] **Issue 3** — In `src/api.py` replace `str(hash(body.title + body.description))` with `hashlib.sha256((body.title + body.description).encode()).hexdigest()`; add `import hashlib` — Owner: Builder — Priority: high
-- [x] **Issue 4** — In `src/api.py` on `POST /api/v1/internal/poll-signals`: read `INTERNAL_TOKEN` from env at startup; reject requests where `Authorization` header != `Bearer $INTERNAL_TOKEN` with a 401 — Owner: Builder — Priority: high
-- [x] **Issue 4** — Add `INTERNAL_TOKEN` to `.env` with a randomly generated value — Owner: Builder — Priority: high
-- [x] **Issue 5** — In `src/pipeline.py`: record `start = time.monotonic()` before each agent `.run()` call; compute `latency_ms = int((time.monotonic() - start) * 1000)` after; replace split partial log calls with a single complete `store.log_agent_run()` containing `agent_name`, `model`, `input_payload`, `output_payload`, and `latency_ms` — fix for Signal Monitor (lines ~203–213) and BOM Mapper (lines ~223–227) — Owner: Builder — Priority: high
-- [x] **Issue 6** — In `src/pipeline.py` change `_AGENTS_PATH` to `str(Path(__file__).parent)`; apply the same fix to the duplicate broken path in `src/api.py:440` and `src/api.py:487` — Owner: Builder — Priority: high
-- [x] **Issue 7** — Declare `EnrichedEvent` Pydantic model in `src/agents/signal_monitor.py` matching SPEC.md §3.1; wrap `SignalMonitorAgent.run()` return: `return EnrichedEvent(**result).model_dump()` — Owner: Builder — Priority: high
-- [x] **Issue 7** — Declare `BOMAnalysis` Pydantic model in `src/agents/bom_mapper.py` matching SPEC.md §3.2; wrap `BOMMapperAgent.run()` return: `return BOMAnalysis(**result).model_dump()` — Owner: Builder — Priority: high
-- [x] **Issue 7** — In `src/pipeline.py`: after each agent `.run()` call re-validate against the corresponding Pydantic model; on `ValidationError` log to `agent_runs` and raise so the pipeline halts cleanly — Owner: Builder — Priority: high
+- [ ] Remove the duplicate `_get_writable_path()` definition in `src/agents/signal_monitor.py` and keep a single clear implementation for writable-path fallback behavior — Owner: Builder — Priority: high
+- [ ] Separate API-runtime logic from leftover CLI/file-audit behavior in `src/agents/signal_monitor.py` so filesystem persistence for seen IDs and JSONL audit logs is explicit, minimal, and easier to reason about in Vercel/Fly environments — Owner: Builder — Priority: high
 
 ---
 
-## OPEN — Recommendation ERROR (new bugs found 2026-04-19)
+## OPEN — Product / UX
 
-- [x] In `src/db/supabase_store.py` `create_recommendation()`: remove `draft_email` and `approved_at` from the inserted row dict — confirmed clean; migration 002 only drops `draft_email` and `approved_at`, `status` preserved — Owner: Builder — Priority: high
-- [x] In `db/migrations/002_drop_hitl_columns.sql`: confirmed SQL only drops `approved_at` and `draft_email`; `status` preserved — Owner: Builder — Priority: high
-- [x] In `frontend/src/pages/RecommendationsPage.jsx`: when `rec.status === 'error'`, render `rec.error` in a red alert box — already implemented — Owner: Builder — Priority: high
+### Globe + map behavior
 
----
+- [ ] Replace the hardcoded corridor data in `frontend/src/components/Globe3D.jsx` with event- and BOM-driven mapping so the dashboard reflects actual uploaded supplier countries and event jurisdictions instead of a fixed demo dataset — Owner: Builder — Priority: med
+- [ ] Remove the runtime dependency on `https://unpkg.com/world-atlas@2/countries-110m.json` by vendoring the topology asset locally or serving it from the app bundle — Owner: Builder — Priority: med
 
-## OPEN — Performance Optimization
+### Event analysis flow
 
-### Phase 1 — Signal Monitor enrich mode (saves 10–30 s, highest impact)
-
-- [ ] In `src/agents/signal_monitor.py`: add a `mode: str = "discover"` parameter to `SignalMonitorAgent.run()`; when `mode == "enrich"` skip the ReAct loop entirely and make a single Groq call with the existing event's `title` and `raw_excerpt` as user content, using a focused system prompt that extracts `hs_codes`, `jurisdictions`, `rate_change_bps`, `old_rate_pct`, `new_rate_pct`, `rate_delta_pct`, `affected_countries`, `effective_date`, `threat_level`, `confidence_score`, and `key_facts`; return the result wrapped through `EnrichedEvent` validation exactly as the discover path does — Owner: Builder — Priority: high
-- [ ] In `src/pipeline.py`: update the `SignalMonitorAgent().run(...)` call to pass `mode="enrich"` — the analyze endpoint already has the event; there is nothing to discover — Owner: Builder — Priority: high
-
-### Phase 2 — Groq rate-limiter fix (eliminates worst-case 60 s freeze)
-
-- [ ] In `src/groq_client.py` (or wherever the rate-limit sleep lives): replace the flat `sleep(60)` on rate-limit with exponential backoff — on a 429 response first read the `Retry-After` header value; if absent, back off 5 s → 10 s → 20 s → 40 s → 60 s max; log each retry attempt at WARNING level so it is visible in backend logs — Owner: Builder — Priority: high
-- [ ] In `src/groq_client.py`: add a per-request timeout of 30 s to every Groq API call so a hung request does not stall the pipeline indefinitely — Owner: Builder — Priority: high
-
-### Phase 3 — Parallel BOM row fetch (saves 1–3 s, low effort)
-
-- [ ] In `src/pipeline.py` inside `run_pipeline()`: wrap the Signal Monitor `enrich` call and the `store.get_bom_rows(bom_id)` fetch in a single `asyncio.gather()` — these are completely independent (one is a Groq LLM call, the other is a Supabase DB read); pass the resolved bom_rows result directly into the BOM Mapper call that follows — Owner: Builder — Priority: med
-
-### Phase 4 — Frontend live progress display (perceived speed, no pipeline change)
-
-- [ ] In `frontend/src/pages/RecommendationsPage.jsx`: while `rec.status === 'running'`, poll `GET /api/v1/recommendations/{rec_id}/progress` (or the existing SSE endpoint if wired) every 2 s and display the current stage name returned by the backend `_progress()` dict — show a labelled progress bar with stages: "Enriching event" → "Mapping BOM" → "Modeling scenarios" → "Ranking" — hide the bar and show results when status transitions to `complete` — Owner: Builder — Priority: med
-- [ ] Verify the backend exposes a progress endpoint that reads from the in-memory `_progress` dict keyed by `rec_id`; if the endpoint does not exist, add `GET /api/v1/recommendations/{rec_id}/progress` to `src/api.py` returning `{ "stage": str, "status": str }` — Owner: Builder — Priority: med
+- [ ] Let the user explicitly choose which BOM to analyze for an event before firing `POST /api/v1/events/{event_id}/analyze`; the current flow defaults to the first loaded BOM, which is risky for multi-product accounts — Owner: Builder — Priority: med
+- [ ] Show the selected BOM more clearly in the scenarios/recommendations flow so users can tell which product a recommendation belongs to without cross-checking IDs — Owner: Builder — Priority: med
 
 ---
 
-## OPEN — Should Fix
+## OPEN — Codebase Hygiene
 
-- [x] **S1** — In `src/api.py` pass the authenticated user's ID to `store.list_boms(user_id=current_user_id)` and `store.list_recommendations(user_id=current_user_id)`; update `SupabaseStore` to filter by `user_id` in both methods — Owner: Builder — Priority: med
-- [x] **S2** — In `src/api.py` compute `event_id = body.event_id or str(uuid.uuid4())` once before the dict literal and reference that variable for both `"id"` and `"event_id"` keys — Owner: Builder — Priority: med
-- [x] **S3** — In `src/pipeline.py` replace `bom_analysis.get('summary', {})` with the real exposure fields from `BOMAnalysis` (`affected_skus`, `total_annual_tariff_impact_usd`) and pass them into the scenario ranking prompt — Owner: Builder — Priority: med
+### Repository cleanup
 
----
+- [ ] Remove checked-in build artifacts and dependency directories that should not live in git (`frontend/dist`, `frontend/node_modules`) and confirm `.gitignore` covers them correctly — Owner: Builder — Priority: med
+- [ ] Reconcile `README.md`, `SPEC.md`, and the implemented code paths so the docs describe the actual current recommendation/approval flow, deployment assumptions, and storage behavior — Owner: Builder — Priority: med
 
-## DONE — Tavily Migration
+### Testing
 
-- [x] Add `tavily-python` to `requirements.txt`; create `src/tools/tavily_client.py` with a `TavilyClient` class that calls `tavily.search(query, max_results=count)` and normalizes each result to `{title, url, description, published}` — Owner: Builder
-- [x] In `src/agents/signal_monitor.py`: replace `BraveMCPClient` with `TavilyClient`; rename tool to `"tavily_search"`; rename `_execute_brave_search` → `_execute_tavily_search` — Owner: Builder
-- [x] In `.env`: consolidate to `TAVILY_API_KEY`; delete `src/tools/mcp_client.py` — Owner: Builder
-
----
-
-## DONE — Supabase Migration
-
-- [x] Add `supabase` to `requirements.txt`; create `src/db/supabase_client.py` with singleton `db` — Owner: Builder
-- [x] Write `db/migrations/001_initial_schema.sql` with all tables from SPEC.md §6 and RLS policies — Owner: Builder
-- [x] Run migration against Supabase project; verify tables and RLS active — Owner: Builder
-- [x] Write `src/db/supabase_store.py` with full 17-method store interface backed by live Supabase queries; keep `_progress` dict in-memory — Owner: Builder
-- [x] Replace `from store import store` with `from db.supabase_store import store` in `api.py` and `pipeline.py`; delete `src/store.py` and `src/data/store.json` — Owner: Builder
-- [x] Fix `.env` typos: `GROQ_API` → `GROQ_API_KEY`; confirm all Supabase keys read via `os.getenv` in `supabase_client.py` — Owner: Builder
-
----
-
-## DONE — Onboarding
-
-- [x] Build multi-step onboarding survey in React — fields: business name, industry, products, supplier countries (multiselect ISO-3166), monthly import volume USD, existing supplier relationships, biggest tariff concern — Owner: Builder
-- [x] Build BOM CSV upload component in React with client-side row validation (required columns: `sku_code`, `description`, `supplier_country`, `unit_cost_usd`) — Owner: Builder
-- [x] Build optional PDF upload component in React (accepts multiple files) — Owner: Builder
-- [x] Add `pdfplumber` to `requirements.txt` and write `extract_pdf_text(pdf_file) -> str` in `data/bom_loader.py` — Owner: Builder
-- [x] Create `business_profiles` table in Supabase per SPEC.md §6; enable RLS `user_id = auth.uid()`; upsert on re-submit — Owner: Builder
-- [x] Implement `POST /api/v1/onboarding` FastAPI endpoint — multipart form with survey fields + BOM CSV + PDFs; returns `{ business_profile_id, bom_id }` — Owner: Builder
-- [x] Write `compile_business_context(user_id) -> str` in `utils/context_builder.py` — Owner: Builder
-- [x] Thread `business_context` into the system prompt of all three agents (Signal Monitor, BOM Mapper, Scenario Modeler) — Owner: Builder
-
----
-
-## DONE — Data Integration
-
-- [x] Add Federal Register REST API client to `signal_monitor.py` — built `tools/federal_register.py` with `FederalRegisterClient`; paginates until no new `document_number`s seen — Owner: Builder
-- [x] Update dedup logic in `signal_monitor.py` to key on `document_number`; persisted in `data/seen_document_numbers.json` — Owner: Builder
-- [x] Write extraction prompt that returns `hs_codes`, `jurisdictions`, `effective_date`, `rate_change_bps` in `FedRegDocExtraction` Pydantic model — Owner: Builder
-- [x] Log every Federal Register API call to `agent_runs` via `_log_agent_run()` — Owner: Builder
-- [x] Write description-cleaning prompt in `bom_mapper.py`; `DESCRIPTION_CLEANER_SYSTEM` + `_clean_description()` method — Owner: Builder
-- [x] Implement Census Schedule B API client — `_census_schedule_b_lookup()` + `ScheduleBMatch` Pydantic model — Owner: Builder
-- [x] Implement USITC HTS API client — `_usitc_hts_lookup()` + `HTSRates` model — Owner: Builder
-- [x] Chain Census → USITC into `lookup_tariff_rate(product_description)` in `bom_mapper.py` — no local caching — Owner: Builder
+- [ ] Replace ad hoc script-style verification in `tests/test_fixes.py` and `tests/verify_todo.py` with a real automated test path (`pytest`-friendly assertions and isolated fixtures/mocks where needed) so regressions are caught consistently — Owner: Builder — Priority: med
+- [ ] Add focused tests for recommendation status transitions, scenario approval behavior, and frontend/API base URL handling — Owner: Builder — Priority: med
