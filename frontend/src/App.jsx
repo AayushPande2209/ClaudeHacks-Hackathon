@@ -46,7 +46,7 @@ export default function App() {
 
     const healthTimer = setInterval(()=>{
       api('GET','/health').then(()=>setApiOk(true)).catch(()=>setApiOk(false));
-    }, 5000);
+    }, 30000);
     const eventsTimer = setInterval(loadEvents, 30000);
     return ()=>{ clearInterval(healthTimer); clearInterval(eventsTimer); };
   }, [loadEvents, loadBoms]);
