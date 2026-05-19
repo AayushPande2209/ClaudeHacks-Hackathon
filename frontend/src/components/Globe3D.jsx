@@ -15,6 +15,18 @@ const CORRIDORS = [
 
 const US = { lat: 38, lng: -97 };
 
+// Map full country names → ISO-2 for flexible matching
+const COUNTRY_NAME_TO_ISO = Object.fromEntries(
+  CORRIDORS.map(c => [c.country.toLowerCase(), c.iso])
+);
+
+function toISO2(raw) {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 2) return trimmed.toUpperCase();
+  return COUNTRY_NAME_TO_ISO[trimmed.toLowerCase()] ?? trimmed.toUpperCase().slice(0, 2);
+}
+
 function riskColor(rate) {
   if (rate > 25) return '#ff4444';
   if (rate >= 10) return '#ff8800';
@@ -28,7 +40,7 @@ const GLOBE_MATERIAL = new THREE.MeshPhongMaterial({
   shininess: 30,
 });
 
-export function Globe3D({ boms, activeMapEvent }) {
+export function Globe3D({ boms, activeMapEvent, activeBom }) {
   const globeRef     = useRef();
   const containerRef = useRef();
   const resumeTimer  = useRef();
@@ -77,29 +89,37 @@ export function Globe3D({ boms, activeMapEvent }) {
     }, 3000);
   }, []);
 
-  // ISO-2 codes of countries actually in the user's BOM
+  // ISO-2 codes of supplier countries — filtered to activeBom when one is selected
   const bomCountries = useMemo(() => {
     const s = new Set();
-    for (const bom of (boms || [])) {
+    const source = activeBom ? [activeBom] : (boms || []);
+    for (const bom of source) {
       for (const row of (bom.rows || [])) {
-        if (row.supplier_country) s.add(row.supplier_country.toUpperCase().slice(0, 2));
+        const iso = toISO2(row.supplier_country);
+        if (iso) s.add(iso);
       }
     }
     return s;
-  }, [boms]);
+  }, [boms, activeBom]);
 
-  // When an event is active, filter to only its affected corridors
+  // Filter corridors: by event if one is active, by selected bom if one is selected, else show all
   const corridors = useMemo(() => {
-    if (!activeMapEvent) return CORRIDORS;
-    const affected = new Set([
-      ...(activeMapEvent.jurisdictions      || []).map(j => j.toUpperCase()),
-      ...(activeMapEvent.affected_countries || []).map(c => c.toUpperCase()),
-    ]);
-    if (!affected.size) return CORRIDORS;
-    return CORRIDORS.filter(c =>
-      affected.has(c.iso) || affected.has(c.country.toUpperCase())
-    );
-  }, [activeMapEvent]);
+    if (activeMapEvent) {
+      const affected = new Set([
+        ...(activeMapEvent.jurisdictions      || []).map(j => j.toUpperCase()),
+        ...(activeMapEvent.affected_countries || []).map(c => c.toUpperCase()),
+      ]);
+      if (!affected.size) return CORRIDORS;
+      return CORRIDORS.filter(c =>
+        affected.has(c.iso) || affected.has(c.country.toUpperCase())
+      );
+    }
+    if (activeBom) {
+      if (!bomCountries.size) return CORRIDORS;
+      return CORRIDORS.filter(c => bomCountries.has(c.iso));
+    }
+    return CORRIDORS;
+  }, [activeMapEvent, activeBom, bomCountries]);
 
   const arcsData = useMemo(() => corridors.map(c => ({
     startLat: c.lat,

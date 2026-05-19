@@ -28,7 +28,7 @@ export function EventsPage({ events: eventsProp, setPage, setTargetRec, setActiv
 
   const threatColor = (level) => {
     if (level === 'CRITICAL') return '#ef4444';
-    if (level === 'HIGH') return '#f59e0b';
+    if (level === 'HIGH') return '#ce5a20ff';
     if (level === 'MEDIUM') return '#f59e0b';
     return '#22c55e';
   };

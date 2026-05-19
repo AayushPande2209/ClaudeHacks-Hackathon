@@ -95,26 +95,13 @@ function EditRowModal({ bom, row, onSave, onClose }) {
 }
 
 // ── Products Panel ─────────────────────────────────────────────────────────
-function ProductsPanel({ boms, loadBoms, setPage }) {
+function ProductsPanel({ boms, loadBoms, setPage, activeBom, setActiveBom }) {
   const [expanded, setExpanded]   = useState(null);
   const [editTarget, setEditTarget] = useState(null); // {bom, row}
-  const [deleting, setDeleting]   = useState(null);
   const [localBoms, setLocalBoms] = useState(boms);
 
   // keep in sync when parent reloads
   React.useEffect(() => { setLocalBoms(boms); }, [boms]);
-
-  async function deleteBom(e, bomId) {
-    e.stopPropagation();
-    if (!window.confirm('Delete this product and all its parts?')) return;
-    setDeleting(bomId);
-    try {
-      await fetch(`/api/v1/boms/${bomId}`, { method: 'DELETE' });
-      setLocalBoms(prev => prev.filter(b => b.id !== bomId));
-      if (expanded === bomId) setExpanded(null);
-      if (loadBoms) loadBoms();
-    } finally { setDeleting(null); }
-  }
 
   function handleRowSaved(bomId, updatedRow) {
     setLocalBoms(prev => prev.map(b => b.id !== bomId ? b : {
@@ -148,14 +135,23 @@ function ProductsPanel({ boms, loadBoms, setPage }) {
         )}
         {localBoms.map((b, i) => {
           const isOpen = expanded === b.id;
+          const isSelected = activeBom?.id === b.id;
           const rows = b.rows || [];
           return (
-            <Glass key={b.id} padding={12} style={{cursor:'pointer',flexShrink:0}}
-              onClick={() => setExpanded(isOpen ? null : b.id)}>
+            <Glass key={b.id} padding={12} style={{
+              cursor:'pointer', flexShrink:0,
+              borderLeft: `3px solid ${isSelected ? 'var(--accent)' : 'transparent'}`,
+              transition: 'border-color 0.15s ease',
+            }}
+              onClick={() => {
+                setActiveBom(isSelected ? null : b);
+                setExpanded(isOpen ? null : b.id);
+              }}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{width:30,height:30,borderRadius:'var(--radius-2)',background:'var(--accent-10)',
+                <div style={{width:30,height:30,borderRadius:'var(--radius-2)',
+                  background: isSelected ? 'var(--accent-18)' : 'var(--accent-10)',
                   display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
-                  border:'1px solid var(--accent-18)'}}>
+                  border:`1px solid ${isSelected ? 'var(--accent)' : 'var(--accent-18)'}`}}>
                   <LIcon name="layers" size={13} color="var(--accent)"/>
                 </div>
                 <div style={{flex:1,minWidth:0}}>
@@ -163,13 +159,6 @@ function ProductsPanel({ boms, loadBoms, setPage }) {
                   <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-muted)',marginTop:2}}>
                     {rows.length} SKU{rows.length!==1?'s':''}
                   </div>
-                </div>
-                <div style={{display:'flex',alignItems:'center',gap:4}} onClick={e=>e.stopPropagation()}>
-                  <button onClick={e=>deleteBom(e,b.id)} disabled={deleting===b.id}
-                    title="Delete product"
-                    style={{background:'none',border:'none',cursor:'pointer',color:'var(--fg-3)',
-                      fontSize:13,padding:'4px',borderRadius:4,lineHeight:1,
-                      opacity: deleting===b.id ? 0.4 : 1}}>🗑</button>
                 </div>
                 <LIcon name={isOpen?'chevron-up':'chevron-down'} size={13} color="var(--fg-3)"/>
               </div>
@@ -502,11 +491,12 @@ function GoodIdeaPanel({ boms }) {
 }
 
 export function DashboardPage({ boms, activeMapEvent, loadBoms, setPage }) {
+  const [activeBom, setActiveBom] = React.useState(null);
   return (
     <>
-      <ProductsPanel boms={boms} loadBoms={loadBoms} setPage={setPage} />
+      <ProductsPanel boms={boms} loadBoms={loadBoms} setPage={setPage} activeBom={activeBom} setActiveBom={setActiveBom} />
       <div className="center-area">
-        <Globe3D boms={boms} activeMapEvent={activeMapEvent} />
+        <Globe3D boms={boms} activeMapEvent={activeMapEvent} activeBom={activeBom} />
         <div style={{
           position:'absolute', top:20, left:20, pointerEvents:'none',
           background:'color-mix(in srgb, var(--bg-surface) 80%, transparent)',
