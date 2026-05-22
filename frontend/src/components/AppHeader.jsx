@@ -90,20 +90,24 @@ export function AppHeader({ page, setPage }) {
                 size={13}
                 color={active ? 'var(--accent)' : 'var(--text-muted)'}
               />
-              {t.label}
+              <span className="nav-label">{t.label}</span>
             </button>
           );
         })}
       </nav>
 
       {/* Status */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 20px',
-        borderLeft: '1px solid var(--bg-border)',
-        flexShrink: 0,
-      }}>
+      <div
+        title="Backend connected and operational"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 20px',
+          borderLeft: '1px solid var(--bg-border)',
+          flexShrink: 0,
+          cursor: 'default',
+        }}
+      >
         <div style={{
           display: 'flex',
           alignItems: 'center',

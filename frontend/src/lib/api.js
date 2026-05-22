@@ -11,3 +11,12 @@ export async function api(method, path, body) {
   }
   return r.json();
 }
+
+export async function apiUpload(path, formData) {
+  const r = await fetch(API + path, { method: "POST", body: formData });
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    throw new Error(`${r.status}: ${t}`);
+  }
+  return r.json();
+}

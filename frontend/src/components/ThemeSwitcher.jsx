@@ -37,6 +37,8 @@ export function ThemeSwitcher({ activeThemeId, setTheme, themes }) {
           <button
             key={id}
             title={theme.name}
+            aria-label={`Switch to ${theme.name} theme`}
+            aria-pressed={active}
             onClick={() => setTheme(id)}
             style={{
               width: 16,

@@ -94,8 +94,9 @@ function RecDetail({ recId, onBack }) {
     return () => clearInterval(interval);
   }, [recId]);
 
+  // Resume supplier-results polling after page refresh if a scenario is chosen but results aren't in yet
   useEffect(() => {
-    if (!rec || rec.status !== "awaiting_approval") return;
+    if (!rec || pendingScenarioId) return;
     const ranked = rec.ranked_scenarios || [];
     const needsPoll = ranked.find(
       (s) => s.scenario_id && s.chosen && s.supplier_results == null
@@ -103,7 +104,7 @@ function RecDetail({ recId, onBack }) {
     if (needsPoll) {
       queueMicrotask(() => setPendingScenarioId(needsPoll.scenario_id));
     }
-  }, [rec]);
+  }, [rec, pendingScenarioId]);
 
   useEffect(() => {
     if (!pendingScenarioId) return;

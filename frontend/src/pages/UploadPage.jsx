@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { Glass } from "../components/ui/Glass";
 import { Btn } from "../components/ui/Btn";
 import { Chip } from "../components/ui/Chip";
+import { apiUpload } from "../lib/api";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ function ProductCard({ product, onRemove }) {
           }}>{statusLabel}</span>
           {product.status !== 'done' && (
             <button onClick={e => { e.stopPropagation(); onRemove(); }}
+              aria-label="Remove product"
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fg-3)', fontSize: 16, lineHeight: 1, padding: 4 }}>
               ✕
             </button>
@@ -184,7 +186,7 @@ function AddProductModal({ onSave, onClose }) {
             <span className="eyebrow" style={{ display: 'block', marginBottom: 3 }}>Company</span>
             <div style={{ fontWeight: 700, fontSize: 15 }}>Add Product</div>
           </div>
-          <button onClick={onClose} style={{
+          <button onClick={onClose} aria-label="Close" style={{
             background: 'none', border: '1px solid var(--bg-border)', cursor: 'pointer',
             color: 'var(--fg-3)', lineHeight: 1, padding: '4px 8px',
             borderRadius: 'var(--radius-1)', fontSize: 13,
@@ -230,7 +232,7 @@ function AddProductModal({ onSave, onClose }) {
                           <td style={{ padding: '4px 8px' }}>{p.supplier_country}</td>
                           <td style={{ padding: '4px 8px' }}>{p.unit_cost_usd ? `$${Number(p.unit_cost_usd).toFixed(2)}` : '—'}</td>
                           <td style={{ padding: '4px 8px' }}>
-                            <button onClick={() => removePart(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 13 }}>✕</button>
+                            <button onClick={() => removePart(i)} aria-label="Remove part" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 13 }}>✕</button>
                           </td>
                         </tr>
                       ))}
@@ -436,16 +438,7 @@ export function UploadPage({ setPage, loadEvents, loadBoms }) {
       }
       for (const f of (product.pdfFiles || [])) fd.append('pdfs', f);
 
-      // Pass product name as form field via the name inside the file blob name already
-      const r = await fetch('/api/v1/materials/upload', { method: 'POST', body: fd });
-      if (!r.ok) {
-        const msg = await r.text();
-        let detail = msg;
-        try { detail = JSON.parse(msg)?.detail || msg; } catch {}
-        setProducts(p => p.map(x => x.id === id ? { ...x, status: 'error', error: detail } : x));
-        return;
-      }
-      const data = await r.json();
+      const data = await apiUpload('/materials/upload', fd);
       setProducts(p => p.map(x => x.id === id ? { ...x, status: 'done', result: data } : x));
       if (typeof loadEvents === 'function') loadEvents();
       if (typeof loadBoms === 'function') loadBoms();

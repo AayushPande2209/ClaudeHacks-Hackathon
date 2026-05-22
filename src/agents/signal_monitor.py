@@ -47,22 +47,6 @@ def _get_writable_path(p: Path) -> Path:
 _SEEN_IDS_PATH = _get_writable_path(_SEEN_IDS_PATH)
 _AGENT_RUNS_LOG = _get_writable_path(_AGENT_RUNS_LOG)
 
-def _get_writable_path(p: Path) -> Path:
-    """Check if a path's parent is writable, else fallback to /tmp."""
-    try:
-        if not p.parent.exists():
-            p.parent.mkdir(parents=True, exist_ok=True)
-        # Test write
-        test_file = p.parent / f".test_write_{os.getpid()}"
-        test_file.touch()
-        test_file.unlink()
-        return p
-    except Exception:
-        # Fallback for Vercel/Read-only
-        tmp_dir = Path("/tmp/tariffshield")
-        tmp_dir.mkdir(parents=True, exist_ok=True)
-        return tmp_dir / p.name
-
 
 # ---------------------------------------------------------------------------
 # Pydantic model for LLM extraction output (validates before use)

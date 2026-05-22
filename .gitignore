@@ -13,6 +13,9 @@ build/
 .venv/
 venv/
 
+# Node
+node_modules/
+
 # Output / runtime artifacts
 src/output/
 src/data/seen_document_numbers.json

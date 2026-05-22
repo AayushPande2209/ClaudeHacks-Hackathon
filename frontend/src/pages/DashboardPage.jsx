@@ -6,6 +6,8 @@ import { LIcon } from "../components/ui/LIcon";
 import { Globe3D } from "../components/Globe3D";
 import { api } from "../lib/api";
 
+const fmtName = s => s ? s.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : s;
+
 // ── Edit Row Modal ────────────────────────────────────────────────────────
 function EditRowModal({ bom, row, onSave, onClose }) {
   const [form, setForm] = useState({
@@ -33,11 +35,8 @@ function EditRowModal({ bom, row, onSave, onClose }) {
     try {
       const updates = {};
       Object.entries(form).forEach(([k,v]) => { if (v !== '' && v !== null) updates[k] = v; });
-      const r = await fetch(`/api/v1/boms/${bom.id}/rows/${row.id}`, {
-        method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updates),
-      });
-      if (!r.ok) throw new Error(await r.text());
-      onSave(await r.json());
+      const updated = await api('PATCH', `/boms/${bom.id}/rows/${row.id}`, updates);
+      onSave(updated);
     } catch(e) {
       setErr(e.message);
     } finally { setSaving(false); }
@@ -51,9 +50,9 @@ function EditRowModal({ bom, row, onSave, onClose }) {
         <div style={{padding:'16px 20px',borderBottom:'1px solid var(--bg-border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div>
             <div style={{fontWeight:700,fontSize:15}}>Edit Part</div>
-            <div style={{fontSize:11,color:'var(--fg-3)',marginTop:1}}>{bom.name}</div>
+            <div style={{fontSize:11,color:'var(--fg-3)',marginTop:1}}>{fmtName(bom.name)}</div>
           </div>
-          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:18,color:'var(--fg-3)'}}>✕</button>
+          <button onClick={onClose} aria-label="Close" style={{background:'none',border:'none',cursor:'pointer',fontSize:18,color:'var(--fg-3)'}}>✕</button>
         </div>
         <div style={{padding:'16px 20px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
           {[
@@ -95,7 +94,7 @@ function EditRowModal({ bom, row, onSave, onClose }) {
 }
 
 // ── Products Panel ─────────────────────────────────────────────────────────
-function ProductsPanel({ boms, loadBoms, setPage, activeBom, setActiveBom }) {
+function ProductsPanel({ boms, setPage, activeBom, setActiveBom }) {
   const [expanded, setExpanded]   = useState(null);
   const [editTarget, setEditTarget] = useState(null); // {bom, row}
   const [localBoms, setLocalBoms] = useState(boms);
@@ -155,7 +154,7 @@ function ProductsPanel({ boms, loadBoms, setPage, activeBom, setActiveBom }) {
                   <LIcon name="layers" size={13} color="var(--accent)"/>
                 </div>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontWeight:600,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',letterSpacing:'-0.01em'}}>{b.name||`Product ${i+1}`}</div>
+                  <div title={fmtName(b.name)} style={{fontWeight:600,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',letterSpacing:'-0.01em'}}>{fmtName(b.name)||`Product ${i+1}`}</div>
                   <div style={{fontFamily:'var(--font-mono)',fontSize:10,color:'var(--text-muted)',marginTop:2}}>
                     {rows.length} SKU{rows.length!==1?'s':''}
                   </div>
@@ -276,6 +275,7 @@ function NewsCard({ article, boms, forceShowImpact }) {
       href={article.url}
       target="_blank"
       rel="noopener noreferrer"
+      aria-label={article.title}
       style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
     >
       <Glass padding={14} style={{
@@ -490,11 +490,11 @@ function GoodIdeaPanel({ boms }) {
   );
 }
 
-export function DashboardPage({ boms, activeMapEvent, loadBoms, setPage }) {
+export function DashboardPage({ boms, activeMapEvent, setPage }) {
   const [activeBom, setActiveBom] = React.useState(null);
   return (
     <>
-      <ProductsPanel boms={boms} loadBoms={loadBoms} setPage={setPage} activeBom={activeBom} setActiveBom={setActiveBom} />
+      <ProductsPanel boms={boms} setPage={setPage} activeBom={activeBom} setActiveBom={setActiveBom} />
       <div className="center-area">
         <Globe3D boms={boms} activeMapEvent={activeMapEvent} activeBom={activeBom} />
         <div style={{

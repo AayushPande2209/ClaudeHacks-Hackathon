@@ -9,7 +9,7 @@ import hashlib
 import json
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import AsyncGenerator
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -644,7 +644,7 @@ async def stream_progress(rec_id: str):
                 yield f"data: {json.dumps(ev)}\n\n"
                 offset += 1
 
-            if rec and rec.get("status") in ("complete", "awaiting_approval", "approved", "rejected", "error"):
+            if rec and rec.get("status") in ("complete", "error"):
                 # pipeline finished — send final state and close
                 yield f"data: {json.dumps({'stage': 'done', 'status': rec['status'], 'rec': rec})}\n\n"
                 break
@@ -816,11 +816,13 @@ def _score_article(title: str, description: str) -> dict:
 
 
 def _fetch_newsapi(query: str, api_key: str, page_size: int = 10) -> list:
+    from_date = (datetime.now(timezone.utc) - timedelta(days=14)).strftime("%Y-%m-%d")
     url = (
         f"https://newsapi.org/v2/everything"
         f"?q={urllib.parse.quote(query)}"
         f"&language=en"
         f"&sortBy=publishedAt"
+        f"&from={from_date}"
         f"&pageSize={page_size}"
         f"&apiKey={api_key}"
     )
@@ -880,9 +882,11 @@ def get_trade_news(refresh: bool = False):
                 "affected_categories": risk.get("affected_categories", []),
             })
 
-    # Sort by risk score desc then publish date
+    # Drop irrelevant articles with no supply-chain signal
+    articles = [a for a in articles if a["risk_score"] >= 9]
+
+    # Sort: risk score desc, then newest first
     articles.sort(key=lambda x: (-x["risk_score"], x["published_at"]), reverse=False)
-    articles.sort(key=lambda x: -x["risk_score"])
 
     _news_cache = {"ts": now, "articles": articles[:30]}
     return {"articles": articles[:30], "cached": False, "count": len(articles[:30])}

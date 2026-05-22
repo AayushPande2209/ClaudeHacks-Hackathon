@@ -30,7 +30,8 @@ export default function App() {
   const loadBoms = useCallback(async () => {
     try {
       const d = await api("GET", "/boms");
-      setBoms(d);
+      const seen = new Set();
+      setBoms((d || []).filter(b => seen.has(b.id) ? false : seen.add(b.id)));
     } catch {
       /* ignore */
     }
@@ -52,6 +53,7 @@ export default function App() {
       className={page === 'dashboard' ? 'layout-grid' : ''}
       style={page !== 'dashboard' ? { minHeight: '100vh', display: 'flex', flexDirection: 'column' } : {}}
     >
+      <h1 className="sr-only">Espada — Supply Chain Intelligence</h1>
       <AppHeader page={page} setPage={setPage} />
 
       {page === 'dashboard' && (

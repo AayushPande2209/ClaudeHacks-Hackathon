@@ -6,10 +6,10 @@
 
 ### Remove useless GET traffic
 
-- [ ] Remove `GET /api/v1/recommendations/{rec_id}/progress` polling from `frontend/src/pages/RecommendationsPage.jsx` — this 2-second polling is only used for the cosmetic live stage indicator; the page already polls `GET /api/v1/recommendations/{rec_id}` for the real analysis state and results — Owner: Builder — Priority: high
-- [ ] Remove the automatic 5-minute `GET /api/v1/news` refresh interval from `frontend/src/pages/DashboardPage.jsx` — keep the initial fetch or convert it to a manual refresh button so the backend is not hit repeatedly for non-essential news updates — Owner: Builder — Priority: high
-- [ ] Remove the fallback `GET /api/v1/events` call in `frontend/src/pages/EventsPage.jsx` — `frontend/src/App.jsx` already loads events and passes them into the page, so this extra fetch is redundant in the current SPA flow — Owner: Builder — Priority: high
-- [ ] Remove any remaining startup `GET /api/v1/health` call if it still exists in the active branch — it is only used for a liveness badge and is safe to drop if Fly health checks already cover backend availability — Owner: Builder — Priority: high
+- [x] Remove `GET /api/v1/recommendations/{rec_id}/progress` polling from `frontend/src/pages/RecommendationsPage.jsx` — this 2-second polling is only used for the cosmetic live stage indicator; the page already polls `GET /api/v1/recommendations/{rec_id}` for the real analysis state and results — Owner: Builder — Priority: high
+- [x] Remove the automatic 5-minute `GET /api/v1/news` refresh interval from `frontend/src/pages/DashboardPage.jsx` — keep the initial fetch or convert it to a manual refresh button so the backend is not hit repeatedly for non-essential news updates — Owner: Builder — Priority: high
+- [x] Remove the fallback `GET /api/v1/events` call in `frontend/src/pages/EventsPage.jsx` — `frontend/src/App.jsx` already loads events and passes them into the page, so this extra fetch is redundant in the current SPA flow — Owner: Builder — Priority: high
+- [x] Remove any remaining startup `GET /api/v1/health` call if it still exists in the active branch — it is only used for a liveness badge and is safe to drop if Fly health checks already cover backend availability — Owner: Builder — Priority: high
 
 ### GET requests that should stay
 
@@ -21,18 +21,54 @@
 
 ### Recommendation flow + status model
 
-- [ ] Unify recommendation statuses across backend and frontend — the UI still contains `awaiting_approval`, `approved`, and `rejected` branches, but the active backend flow mainly returns `running`, `complete`, and `error`; either implement the richer state machine end-to-end or simplify the frontend to match the current API — Owner: Builder — Priority: high
-- [ ] Decide whether scenario approval should change recommendation status — `POST /api/v1/scenarios/{scenario_id}/approve` marks a scenario as chosen, but does not update the parent recommendation record to an approval-specific status for the UI/audit trail — Owner: Builder — Priority: high
+- [x] Unify recommendation statuses across backend and frontend — the UI still contains `awaiting_approval`, `approved`, and `rejected` branches, but the active backend flow mainly returns `running`, `complete`, and `error`; either implement the richer state machine end-to-end or simplify the frontend to match the current API — Owner: Builder — Priority: high
+- [x] Decide whether scenario approval should change recommendation status — `POST /api/v1/scenarios/{scenario_id}/approve` marks a scenario as chosen, but does not update the parent recommendation record to an approval-specific status for the UI/audit trail — Owner: Builder — Priority: high
 
 ### API consistency
 
-- [ ] Replace direct `fetch('/api/v1/...')` calls in the frontend with the shared `api()` helper (or equivalent shared base-URL utility) so deployments using `VITE_API_BASE_URL` do not break edit/delete/upload actions — affected spots include `frontend/src/pages/DashboardPage.jsx` and `frontend/src/pages/UploadPage.jsx` — Owner: Builder — Priority: high
-- [ ] Add a shared helper for multipart/form-data uploads so file uploads use the same base URL logic as JSON API calls without duplicating fetch behavior — Owner: Builder — Priority: high
+- [x] Replace direct `fetch('/api/v1/...')` calls in the frontend with the shared `api()` helper (or equivalent shared base-URL utility) so deployments using `VITE_API_BASE_URL` do not break edit/delete/upload actions — affected spots include `frontend/src/pages/DashboardPage.jsx` and `frontend/src/pages/UploadPage.jsx` — Owner: Builder — Priority: high
+- [x] Add a shared helper for multipart/form-data uploads so file uploads use the same base URL logic as JSON API calls without duplicating fetch behavior — Owner: Builder — Priority: high
 
 ### Signal Monitor cleanup
 
-- [ ] Remove the duplicate `_get_writable_path()` definition in `src/agents/signal_monitor.py` and keep a single clear implementation for writable-path fallback behavior — Owner: Builder — Priority: high
+- [x] Remove the duplicate `_get_writable_path()` definition in `src/agents/signal_monitor.py` and keep a single clear implementation for writable-path fallback behavior — Owner: Builder — Priority: high
 - [ ] Separate API-runtime logic from leftover CLI/file-audit behavior in `src/agents/signal_monitor.py` so filesystem persistence for seen IDs and JSONL audit logs is explicit, minimal, and easier to reason about in Vercel/Fly environments — Owner: Builder — Priority: high
+
+---
+
+## OPEN — Audit Findings (UI/UX/Bugs)
+
+### Bugs / Data
+
+- [x] Track down and fix raw `undefined`/`null`/`NaN` values being rendered as visible text in the DOM — Owner: Builder — Priority: high
+- [x] Fix duplicate products appearing in the left sidebar (`premium_tshirt` ×3, `house_blend_coffee` ×2) — likely a rendering or data-dedup bug — Owner: Builder — Priority: high
+- [x] Fix broken BOM-to-signal matching — signal cards show "No direct part matches" even when products are loaded in the sidebar — Owner: Builder — Priority: high
+- [x] Fix stale news — articles are 16–24 days old; the refresh button does not appear to be pulling fresh data — Owner: Builder — Priority: high
+- [x] Tighten news relevance filtering — irrelevant articles (stock market recaps, vaccine market reports) are surfacing at LOW/INFO scores and cluttering the feed — Owner: Builder — Priority: med
+
+### UX / Content
+
+- [x] Format product display names — raw snake_case identifiers (`premium_tshirt`, `house_blend_coffee`) should be rendered as human-readable names — Owner: Builder — Priority: high
+- [x] Add tooltip or expand-on-hover for truncated product names (`espresso_machine_p...`, `sample_medical_dive...`) — Owner: Builder — Priority: med
+- [x] Add labels to the theme switcher dots — five colored circles at the bottom have no indication of which theme each represents — Owner: Builder — Priority: med
+- [x] Clarify the "READY" status pill in the header — add a tooltip or replace with clearer copy so users know what it means — Owner: Builder — Priority: med
+- [x] Add an H1 heading to the page for SEO and screen-reader navigation — Owner: Builder — Priority: med
+- [x] Fix news card markup — entire article body (title + meta + summary) is wrapped in a single `<a>` tag, creating enormous inaccessible link labels — Owner: Builder — Priority: med
+
+### Mobile
+
+- [x] Fix mobile layout — page is 709px wide on a 375px viewport causing horizontal scroll; the layout is not responsive — Owner: Builder — Priority: high
+- [x] Fix navigation tabs overflowing the header on mobile — Globe/Products/Signals/Scenarios/Audit all try to fit in one row and clip — Owner: Builder — Priority: high
+
+### Accessibility
+
+- [x] Add `aria-label` to icon-only buttons that have no visible text — Owner: Builder — Priority: med
+- [x] Audit and fix keyboard focus styles — custom glass-morphism buttons likely have no visible focus ring — Owner: Builder — Priority: med
+
+### Visual / Desktop
+
+- [ ] Increase globe contrast — the 3D globe blends into the black background on desktop; country outlines are nearly invisible — Owner: Builder — Priority: med
+- [ ] Improve three-panel layout at 1440px — left sidebar + globe + right signals panel compete for space; globe ends up too small — Owner: Builder — Priority: med
 
 ---
 
@@ -54,7 +90,7 @@
 
 ### Repository cleanup
 
-- [ ] Remove checked-in build artifacts and dependency directories that should not live in git (`frontend/dist`, `frontend/node_modules`) and confirm `.gitignore` covers them correctly — Owner: Builder — Priority: med
+- [x] Remove checked-in build artifacts and dependency directories that should not live in git (`frontend/dist`, `frontend/node_modules`) and confirm `.gitignore` covers them correctly — Owner: Builder — Priority: med
 - [ ] Reconcile `README.md`, `SPEC.md`, and the implemented code paths so the docs describe the actual current recommendation/approval flow, deployment assumptions, and storage behavior — Owner: Builder — Priority: med
 
 ### Testing
